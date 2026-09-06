@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+static-demo/
+docs/
+prototypes/
+design.md
+.playwright-mcp/
+prototypes/stage-0-pdf/fonts/
+*.png
+*.pdf
+pnpm-lock.yaml

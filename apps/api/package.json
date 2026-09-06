@@ -1,0 +1,30 @@
+{
+  "name": "@aceresume/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run && tsx --tsconfig tsconfig.json tests/health-injection.smoke.ts"
+  },
+  "dependencies": {
+    "@aceresume/config": "workspace:*",
+    "@aceresume/contracts": "workspace:*",
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/core": "^11.0.1",
+    "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/swagger": "^11.0.1",
+    "bullmq": "^5.58.5",
+    "drizzle-orm": "^0.44.2",
+    "ioredis": "^5.6.1",
+    "minio": "^8.0.4",
+    "postgres": "^3.4.7",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

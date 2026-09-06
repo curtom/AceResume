@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AceResume A4 PDF Spike</title>
+    <link rel="stylesheet" href="./spike.css" />
+  </head>
+  <body>
+    <main class="resume" aria-label="A4 简历 PDF 技术验证样本">
+      <article class="page">
+        <header class="masthead">
+          <div>
+            <p class="eyebrow">FRONTEND ENGINEERING · 2026</p>
+            <h1>林晓屿 <span>LIN XIAOYU</span></h1>
+            <p class="role">前端开发实习生 / Frontend Engineering Intern</p>
+          </div>
+          <address>
+            杭州 · 2026 届<br />
+            lin.xiaoyu@example.test<br />
+            <a href="https://example.test">portfolio.example.test</a>
+          </address>
+        </header>
+
+        <section>
+          <h2>个人简介 <span>PROFILE</span></h2>
+          <p>软件工程专业本科生，专注于 Vue 3、TypeScript 与可维护的前端工程实践。该样本同时验证中文标点、英文术语、数字 1024、A4 页面边距以及可选择文本的 PDF 输出。</p>
+        </section>
+
+        <section>
+          <h2>项目经历 <span>SELECTED PROJECTS</span></h2>
+          <article class="entry">
+            <div class="entry-head"><h3>拾光 · 校园二手交易平台</h3><time>2025.09 — 2026.01</time></div>
+            <p class="meta">前端负责人 · Vue 3 · TypeScript · Pinia</p>
+            <ul>
+              <li>负责交易发布、消息和个人中心模块，按领域拆分组件与状态，保证表单、列表和异常状态具有一致体验。</li>
+              <li>使用虚拟列表与图片懒加载改善长列表性能；本条为排版样本，不代表真实项目成果。</li>
+              <li>建立可访问的键盘操作与错误提示，验证长中文条目在页内换行时不发生裁切。</li>
+            </ul>
+          </article>
+          <article class="entry">
+            <div class="entry-head"><h3>微光 · 个人作品集</h3><time>2025.03 — 2025.05</time></div>
+            <p class="meta">独立开发 · Vite · Responsive Design</p>
+            <ul>
+              <li>完成个人项目展示与案例整理，使用清晰的信息层级呈现中英文内容和外部链接。</li>
+            </ul>
+          </article>
+        </section>
+
+        <section class="skill-grid">
+          <div><h2>专业技能 <span>SKILLS</span></h2><p><strong>前端开发</strong> HTML、CSS、JavaScript、TypeScript、Vue 3</p></div>
+          <div><h2>工程实践 <span>TOOLING</span></h2><p><strong>协作工具</strong> Git、REST API、Vite、测试与持续集成</p></div>
+        </section>
+
+        <footer><span>AceResume · PDF rendering spike</span><span>01</span></footer>
+      </article>
+
+      <article class="page page-break">
+        <section>
+          <h2>实习经历 <span>EXPERIENCE</span></h2>
+          <article class="entry">
+            <div class="entry-head"><h3>杭州云舟科技有限公司</h3><time>2025.06 — 2025.09</time></div>
+            <p class="meta">前端开发实习生 · 杭州</p>
+            <ul>
+              <li>参与运营管理后台的界面实现和接口联调，按照既定组件规范处理加载、空状态、错误和成功状态。</li>
+              <li>整理重复交互模式，协助团队降低相似页面之间的样式与逻辑偏差。</li>
+            </ul>
+          </article>
+        </section>
+
+        <section>
+          <h2>教育经历 <span>EDUCATION</span></h2>
+          <article class="entry compact-entry">
+            <div class="entry-head"><h3>浙江工业大学 · 软件工程 · 本科</h3><time>2022.09 — 2026.06</time></div>
+            <p>GPA、排名和量化成果均应由用户资料或材料支持；本技术样本不将示例文本作为用户事实。</p>
+          </article>
+        </section>
+
+        <section>
+          <h2>验证说明 <span>SPIKE CHECKLIST</span></h2>
+          <ol>
+            <li>同一 HTML/CSS 在屏幕与 Playwright print 模式使用本地 Noto Sans SC。</li>
+            <li>使用 CSS `@page` 固定 A4 尺寸，第二页通过显式分页规则开始。</li>
+            <li>生成的 PDF 应保留可选择的中英文文本与可点击链接。</li>
+            <li>正式模板还需增加自动分页、孤行控制、模板版本和视觉回归基准。</li>
+          </ol>
+        </section>
+
+        <footer><span>AceResume · PDF rendering spike</span><span>02</span></footer>
+      </article>
+    </main>
+  </body>
+</html>

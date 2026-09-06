@@ -1,0 +1,24 @@
+:root {
+  font-family: 'Noto Sans SC', system-ui, sans-serif;
+  color: #24323d;
+  background: #f5f7f6;
+
+  --app-canvas: #f5f7f6;
+  --surface-color: #fff;
+  --ink-color: #19364d;
+  --accent-color: #2f6f69;
+  --line-color: #dbe3e1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
