@@ -49,7 +49,11 @@ export default tseslint.config(
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
+      // Vue 模板的纯格式由 Prettier 统一负责，避免两套格式器互相改写。
+      'vue/html-closing-bracket-newline': 'off',
+      'vue/html-indent': 'off',
       'vue/max-attributes-per-line': 'off',
+      'vue/multiline-html-element-content-newline': 'off',
       'vue/singleline-html-element-content-newline': 'off',
     },
   },

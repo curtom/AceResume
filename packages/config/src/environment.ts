@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
 const portSchema = z.coerce.number().int().min(1).max(65_535);
+const booleanEnvironmentSchema = z
+  .enum(['true', 'false'])
+  .default('true')
+  .transform((value) => value === 'true');
 
 export const InfrastructureEnvironmentSchema = z.object({
   DATABASE_URL: z.string().url(),
@@ -16,10 +20,12 @@ export const InfrastructureEnvironmentSchema = z.object({
 });
 
 export const ApiEnvironmentSchema = InfrastructureEnvironmentSchema.extend({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_HOST: z.string().min(1),
   API_PORT: portSchema,
   WEB_ORIGIN: z.string().url(),
   AUTH_JWT_SECRET: z.string().min(32),
+  AUTH_REQUIRE_EMAIL_VERIFICATION: booleanEnvironmentSchema,
 });
 
 export const WorkerEnvironmentSchema = InfrastructureEnvironmentSchema.extend({

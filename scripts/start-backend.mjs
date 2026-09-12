@@ -47,13 +47,24 @@ if (await isPortInUse(apiPort)) {
 
 // 启动本地基础设施（PostgreSQL、Redis、MinIO 等）。
 console.log('启动 Docker 基础设施...');
-const infra = spawnSync('docker', ['compose', 'up', '-d'], {
+const infra = spawnSync('docker', ['compose', 'up', '-d', '--wait'], {
   cwd: projectRoot,
   stdio: 'inherit',
   shell: true,
 });
 if (infra.status !== 0) {
   process.exit(infra.status ?? 1);
+}
+
+// 基础设施就绪后先执行迁移，避免 API 因缺表启动后返回 500。
+console.log('执行数据库迁移...');
+const migration = spawnSync('corepack', ['pnpm', 'db:migrate'], {
+  cwd: projectRoot,
+  stdio: 'inherit',
+  shell: true,
+});
+if (migration.status !== 0) {
+  process.exit(migration.status ?? 1);
 }
 
 // 在后台启动 Worker，API 退出时自动清理。

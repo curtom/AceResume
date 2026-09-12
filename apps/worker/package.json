@@ -8,10 +8,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@aceresume/contracts": "workspace:*",
     "@aceresume/config": "workspace:*",
-    "bullmq": "^5.58.5"
+    "bullmq": "^5.58.5",
+    "nodemailer": "^10.0.0"
   },
   "devDependencies": {
+    "@types/nodemailer": "^8.0.1",
     "typescript": "^5.8.3"
   }
 }

@@ -20,7 +20,18 @@ const validEnvironment = {
 
 describe('loadEnvironment', () => {
   it('coerces valid values', () => {
-    expect(loadEnvironment(ApiEnvironmentSchema, validEnvironment).API_PORT).toBe(3000);
+    const environment = loadEnvironment(ApiEnvironmentSchema, {
+      ...validEnvironment,
+      AUTH_REQUIRE_EMAIL_VERIFICATION: 'false',
+    });
+    expect(environment.API_PORT).toBe(3000);
+    expect(environment.AUTH_REQUIRE_EMAIL_VERIFICATION).toBe(false);
+  });
+
+  it('requires email verification by default', () => {
+    expect(
+      loadEnvironment(ApiEnvironmentSchema, validEnvironment).AUTH_REQUIRE_EMAIL_VERIFICATION,
+    ).toBe(true);
   });
 
   it('names a missing required variable', () => {

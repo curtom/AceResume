@@ -1,6 +1,6 @@
 # AceResume
 
-AceResume 是面向大学生与应届毕业生的 AI 辅助在线简历制作平台。本仓库当前完成阶段 1 的工程骨架；账户、资料、简历、文件和 AI 业务功能尚未开始。
+AceResume 是面向大学生与应届毕业生的 AI 辅助在线简历制作平台。本仓库当前完成阶段 2 的账户与个人资料库；多简历编辑、文件、AI 与正式 PDF 功能将在后续阶段实现。
 
 ## 前置条件
 
@@ -23,11 +23,11 @@ pnpm start:backend   # Docker 基础服务 + API + Worker
 pnpm start:frontend  # Vite Web
 ```
 
-后端脚本会在首次运行时创建 `.env`，并在 API 端口被占用时停止且提示处理方式；退出 API 后，它启动的 Worker 也会一并退出。
+后端脚本会在首次运行时创建 `.env`，启动 Docker 基础设施并执行 Drizzle migration；API 端口被占用时会停止并提示处理方式。退出 API 后，它启动的 Worker 也会一并退出。
 
 - Web：`http://localhost:5173`
-- API health：`http://127.0.0.1:3000/api/v1/health`
-- OpenAPI：`http://127.0.0.1:3000/api/docs`
+- API health：`http://localhost:3000/api/v1/health`
+- OpenAPI：`http://localhost:3000/api/docs`
 - MinIO Console：`http://127.0.0.1:9001`
 - Mailpit：`http://127.0.0.1:8025`
 
@@ -39,11 +39,14 @@ pnpm start:frontend  # Vite Web
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:integration
 pnpm build
 pnpm e2e
 ```
 
-当前 E2E 需在 API 与 Web 开发服务运行时执行。真实模型密钥未在本阶段配置，阶段 6 前请仅在本机 `.env` 写入 `DASHSCOPE_API_KEY`，不要提交或通过聊天发送。
+当前 E2E 需在 API、Worker 与 Web 开发服务运行时执行，验证邮件可在 Mailpit 查看。真实模型密钥未在本阶段配置，阶段 6 前请仅在本机 `.env` 写入 `DASHSCOPE_API_KEY`，不要提交或通过聊天发送。
+
+本地 `.env` 默认设置 `AUTH_REQUIRE_EMAIL_VERIFICATION=false`，注册后可直接登录；生产环境应删除该覆盖项或设为 `true`，恢复邮箱验证和 Mailpit/正式邮件 Provider 流程。
 
 ## 本地基础设施
 
@@ -53,5 +56,7 @@ pnpm e2e
 
 - `apps/*` 可依赖 `packages/*`；`pnpm check:boundaries` 阻止共享包反向依赖应用。
 - API 使用 `/api/v1`、统一响应包装、请求 ID、稳定错误码和 OpenAPI。
-- Worker 仅注册基础 `system` 队列，尚未承载业务任务。
-- 阶段 1 只创建已使用的 `contracts` 与 `config` 包；简历 Schema、模板引擎和 AI 核心会在各自阶段随实际需求创建。
+- Worker 注册基础 `system` 队列和阶段 2 的 `email.send` 队列；邮件正文不会写入日志。
+- 账户、会话、验证/重置令牌、个人资料和资料条目只通过 Drizzle migration 建表。
+- Access Token 仅保存在前端内存，Refresh Token 使用 HttpOnly Cookie 并在每次刷新时轮换。
+- 阶段 2 继续只使用已需要的 `contracts` 与 `config` 包；简历 Schema、模板引擎和 AI 核心会在对应阶段随实际用例创建。

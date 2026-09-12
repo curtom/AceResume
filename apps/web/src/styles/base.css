@@ -8,6 +8,11 @@
   --ink-color: #19364d;
   --accent-color: #2f6f69;
   --line-color: #dbe3e1;
+  --brand-blue: #173fbd;
+  --coral: #ff6a4d;
+  --yellow: #f6d86b;
+  --muted-color: #737887;
+  --serif: 'Songti SC', 'STSong', 'Noto Serif CJK SC', serif;
 }
 
 * {
@@ -16,6 +21,11 @@
 
 body {
   margin: 0;
+  min-width: 320px;
+}
+
+a {
+  color: inherit;
 }
 
 button {
