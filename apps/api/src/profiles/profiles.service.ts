@@ -4,6 +4,8 @@ import {
   ExperienceContentSchema,
   ProjectContentSchema,
   SkillContentSchema,
+  ProfileEntrySchema,
+  ProfileEntryPageSchema,
   type CreateProfileEntryRequest,
   type Profile,
   type ProfileEntry,
@@ -41,12 +43,12 @@ export class ProfilesService {
     pageSize: number,
   ): Promise<ProfileEntryPage> {
     const result = await this.repository.listEntries(userId, type, page, pageSize);
-    return {
+    return ProfileEntryPageSchema.parse({
       items: result.items.map((entry) => this.mapEntry(entry)),
       page,
       pageSize,
       total: result.total,
-    };
+    });
   }
 
   async createEntry(userId: string, input: CreateProfileEntryRequest): Promise<ProfileEntry> {
@@ -165,7 +167,7 @@ export class ProfilesService {
   private mapEntry(
     entry: NonNullable<Awaited<ReturnType<ProfilesRepository['findEntry']>>>,
   ): ProfileEntry {
-    return {
+    return ProfileEntrySchema.parse({
       id: entry.id,
       type: entry.type,
       content: entry.content,
@@ -173,7 +175,7 @@ export class ProfilesService {
       version: entry.version,
       createdAt: entry.createdAt.toISOString(),
       updatedAt: entry.updatedAt.toISOString(),
-    };
+    });
   }
 
   private conflict(): AppException {

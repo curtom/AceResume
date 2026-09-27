@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  ResumeDocumentSchema,
+  ResumeLocaleSchema,
+  TemplateDefinitionSchema,
+} from '@aceresume/resume-schema';
 
 export const ApiErrorCodeSchema = z.enum([
   'VALIDATION_FAILED',
@@ -13,6 +18,32 @@ export const ApiErrorCodeSchema = z.enum([
   'SESSION_EXPIRED',
   'PROFILE_VERSION_CONFLICT',
   'PROFILE_ENTRY_NOT_FOUND',
+  'RESUME_LIMIT_REACHED',
+  'RESUME_NOT_FOUND',
+  'RESUME_VERSION_CONFLICT',
+  'TEMPLATE_NOT_FOUND',
+  'EXPORT_NOT_FOUND',
+  'EXPORT_NOT_READY',
+  'EXPORT_RENDER_FAILED',
+  'DOCUMENT_NOT_FOUND',
+  'DOCUMENT_LIMIT_REACHED',
+  'DOCUMENT_TYPE_UNSUPPORTED',
+  'DOCUMENT_TOO_LARGE',
+  'DOCUMENT_PARSE_FAILED',
+  'DOCUMENT_NOT_READY',
+  'DOCUMENT_DELETE_FAILED',
+  'IMPORT_NOT_FOUND',
+  'IMPORT_ALREADY_CONFIRMED',
+  'AI_TASK_NOT_FOUND',
+  'AI_SOURCE_FORBIDDEN',
+  'AI_CONSENT_REQUIRED',
+  'AI_OUTPUT_INVALID',
+  'AI_UNSUPPORTED_CLAIM',
+  'AI_PROVIDER_TIMEOUT',
+  'AI_RATE_LIMITED',
+  'AI_CONTENT_REJECTED',
+  'AI_PROVIDER_UNAVAILABLE',
+  'FEATURE_NOT_AVAILABLE',
   'RATE_LIMITED',
   'DEPENDENCY_UNAVAILABLE',
   'INTERNAL_ERROR',
@@ -186,15 +217,23 @@ export const ReorderProfileEntriesRequestSchema = z
     versions: z.record(z.string().uuid(), z.number().int().positive()),
   })
   .strict();
-export const ProfileEntrySchema = z.object({
+const profileEntryBase = {
   id: z.string().uuid(),
-  type: ProfileEntryTypeSchema,
-  content: ProfileEntryContentSchema,
   sortOrder: z.number().int().nonnegative(),
   version: z.number().int().positive(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-});
+};
+export const ProfileEntrySchema = z.discriminatedUnion('type', [
+  z.object({ ...profileEntryBase, type: z.literal('education'), content: EducationContentSchema }),
+  z.object({ ...profileEntryBase, type: z.literal('project'), content: ProjectContentSchema }),
+  z.object({
+    ...profileEntryBase,
+    type: z.literal('experience'),
+    content: ExperienceContentSchema,
+  }),
+  z.object({ ...profileEntryBase, type: z.literal('skill'), content: SkillContentSchema }),
+]);
 export const ProfileEntryPageSchema = z.object({
   items: z.array(ProfileEntrySchema),
   page: z.number().int().positive(),
@@ -239,3 +278,408 @@ export const EmailJobSchema = z.object({
 export type EmailJob = z.infer<typeof EmailJobSchema>;
 
 export const MessageDataSchema = z.object({ message: z.string() });
+
+export const ResumeStatusSchema = z.enum(['active', 'archived']);
+export const ResumeSourceSchema = z.enum(['blank', 'profile', 'import']);
+export const ResumeSummarySchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1).max(120),
+  targetRole: nullableText(120),
+  locale: ResumeLocaleSchema,
+  templateVersionId: z.string().min(1).max(100),
+  status: ResumeStatusSchema,
+  source: ResumeSourceSchema,
+  thumbnailStatus: z.literal('placeholder'),
+  version: z.number().int().positive(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export const ResumeDetailSchema = ResumeSummarySchema.extend({ document: ResumeDocumentSchema });
+const resumeName = z.string().trim().min(1).max(120);
+const resumeTargetRole = nullableText(120);
+const templateVersionId = z.string().trim().min(1).max(100).default('classic-single-v1');
+export const CreateResumeRequestSchema = z.discriminatedUnion('mode', [
+  z
+    .object({
+      mode: z.literal('blank'),
+      name: resumeName,
+      targetRole: resumeTargetRole,
+      locale: ResumeLocaleSchema,
+      templateVersionId,
+    })
+    .strict(),
+  z
+    .object({
+      mode: z.literal('profile'),
+      name: resumeName,
+      targetRole: resumeTargetRole,
+      locale: ResumeLocaleSchema,
+      templateVersionId,
+      profileEntryIds: z.array(z.string().uuid()).max(100),
+    })
+    .strict(),
+  z
+    .object({
+      mode: z.literal('import'),
+      name: resumeName,
+      targetRole: resumeTargetRole,
+      locale: ResumeLocaleSchema,
+      templateVersionId,
+    })
+    .strict(),
+]);
+export const UpdateResumeRequestSchema = z
+  .object({
+    baseVersion: z.number().int().positive(),
+    name: resumeName,
+    targetRole: resumeTargetRole,
+  })
+  .strict();
+export const ResumeStatusActionRequestSchema = z
+  .object({ baseVersion: z.number().int().positive() })
+  .strict();
+export const DuplicateResumeRequestSchema = z.object({ name: resumeName.optional() }).strict();
+export const SaveResumeRequestSchema = z
+  .object({
+    baseVersion: z.number().int().positive(),
+    idempotencyKey: z.string().uuid(),
+    document: ResumeDocumentSchema,
+  })
+  .strict();
+export const ResumeListQuerySchema = z.object({
+  status: ResumeStatusSchema.default('active'),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(20).default(12),
+});
+export const ResumePageSchema = z.object({
+  items: z.array(ResumeSummarySchema),
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+  total: z.number().int().nonnegative(),
+});
+
+export type ResumeStatus = z.infer<typeof ResumeStatusSchema>;
+export type ResumeSummary = z.infer<typeof ResumeSummarySchema>;
+export type ResumeDetail = z.infer<typeof ResumeDetailSchema>;
+export type CreateResumeRequest = z.infer<typeof CreateResumeRequestSchema>;
+export type UpdateResumeRequest = z.infer<typeof UpdateResumeRequestSchema>;
+export type SaveResumeRequest = z.infer<typeof SaveResumeRequestSchema>;
+export type ResumePage = z.infer<typeof ResumePageSchema>;
+
+export const TemplateSummarySchema = TemplateDefinitionSchema.pick({
+  id: true,
+  version: true,
+  versionId: true,
+  name: true,
+  description: true,
+  category: true,
+  layout: true,
+  supportedLocales: true,
+  supportedSections: true,
+  defaultTheme: true,
+  pagination: true,
+  visualStyle: true,
+});
+export const TemplateListSchema = z.object({ items: z.array(TemplateSummarySchema) }).strict();
+export type TemplateSummary = z.infer<typeof TemplateSummarySchema>;
+export type TemplateList = z.infer<typeof TemplateListSchema>;
+
+export const ExportStatusSchema = z.enum(['queued', 'processing', 'completed', 'failed']);
+export const RenderDiagnosticsSchema = z
+  .object({
+    pageCount: z.number().int().nonnegative(),
+    overflowCount: z.number().int().nonnegative(),
+    blankPageCount: z.number().int().nonnegative(),
+    invalidLinkCount: z.number().int().nonnegative(),
+    fontReady: z.boolean(),
+    exceedsRecommendedPages: z.boolean(),
+    exceedsMaximumPages: z.boolean(),
+  })
+  .strict();
+export const CreateExportRequestSchema = z
+  .object({
+    resumeVersion: z.number().int().positive(),
+    idempotencyKey: z.string().uuid(),
+  })
+  .strict();
+export const ExportJobSchema = z
+  .object({
+    id: z.string().uuid(),
+    resumeId: z.string().uuid(),
+    resumeVersion: z.number().int().positive(),
+    templateVersionId: z.string().min(1).max(100),
+    status: ExportStatusSchema,
+    fileName: z.string().min(1).max(180),
+    diagnostics: RenderDiagnosticsSchema.nullable(),
+    errorCode: z.string().max(80).nullable(),
+    errorMessage: z.string().max(500).nullable(),
+    createdAt: z.string().datetime(),
+    completedAt: z.string().datetime().nullable(),
+  })
+  .strict();
+export const PdfExportJobSchema = z.object({ exportJobId: z.string().uuid() }).strict();
+export type ExportStatus = z.infer<typeof ExportStatusSchema>;
+export type RenderDiagnostics = z.infer<typeof RenderDiagnosticsSchema>;
+export type CreateExportRequest = z.infer<typeof CreateExportRequestSchema>;
+export type ExportJob = z.infer<typeof ExportJobSchema>;
+export type PdfExportJob = z.infer<typeof PdfExportJobSchema>;
+
+export const DocumentFileTypeSchema = z.enum(['docx', 'pdf', 'txt', 'md']);
+export const DocumentPurposeSchema = z.enum(['material', 'resume']);
+export const DocumentStatusSchema = z.enum(['queued', 'parsing', 'ready', 'failed', 'deleting']);
+export const DocumentSummarySchema = z
+  .object({
+    id: z.string().uuid(),
+    fileName: z.string().min(1).max(255),
+    fileType: DocumentFileTypeSchema,
+    purpose: DocumentPurposeSchema,
+    mimeType: z.string().min(1).max(120),
+    sizeBytes: z.number().int().nonnegative(),
+    status: DocumentStatusSchema,
+    chunkCount: z.number().int().nonnegative(),
+    pageCount: z.number().int().nonnegative().nullable(),
+    errorCode: z.string().max(80).nullable(),
+    errorMessage: z.string().max(500).nullable(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+export const DocumentPageSchema = z
+  .object({
+    items: z.array(DocumentSummarySchema),
+    page: z.number().int().positive(),
+    pageSize: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+    usageBytes: z.number().int().nonnegative(),
+    limits: z.object({
+      maxFileBytes: z.number().int().positive(),
+      maxFiles: z.number().int().positive(),
+      maxTotalBytes: z.number().int().positive(),
+    }),
+  })
+  .strict();
+export const DocumentListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(20).default(12),
+});
+export const DocumentChunkSchema = z
+  .object({
+    id: z.string().uuid(),
+    content: z.string().max(20_000),
+    pageNumber: z.number().int().positive().nullable(),
+    paragraphStart: z.number().int().nonnegative().nullable(),
+    paragraphEnd: z.number().int().nonnegative().nullable(),
+    sectionPath: z.string().max(300).nullable(),
+    chunkIndex: z.number().int().nonnegative(),
+  })
+  .strict();
+export const ImportCandidateFieldSchema = z.enum([
+  'fullName',
+  'email',
+  'phone',
+  'location',
+  'targetRole',
+  'summary',
+  'school',
+  'major',
+  'degree',
+  'organization',
+  'position',
+  'projectName',
+  'projectRole',
+  'skill',
+  'startDate',
+  'endDate',
+  'technologies',
+  'description',
+]);
+export const ImportCandidateSchema = z
+  .object({
+    id: z.string().uuid(),
+    section: z.enum(['basic', 'summary', 'education', 'experience', 'project', 'skill']),
+    field: ImportCandidateFieldSchema,
+    label: z.string().min(1).max(80),
+    value: z.string().min(1).max(5_000),
+    confidence: z.number().min(0).max(1),
+    source: z.object({
+      chunkId: z.string().uuid(),
+      pageNumber: z.number().int().positive().nullable(),
+      paragraphStart: z.number().int().nonnegative().nullable(),
+    }),
+  })
+  .strict();
+export const DocumentImportSchema = z
+  .object({
+    id: z.string().uuid(),
+    status: z.enum(['pending', 'confirmed']),
+    candidates: z.array(ImportCandidateSchema).max(200),
+    confirmedAt: z.string().datetime().nullable(),
+  })
+  .strict();
+export const DocumentDetailSchema = DocumentSummarySchema.extend({
+  chunks: z.array(DocumentChunkSchema).max(5_000),
+  import: DocumentImportSchema.nullable(),
+});
+export const ConfirmDocumentImportRequestSchema = z
+  .object({
+    selected: z
+      .array(z.object({ id: z.string().uuid(), value: z.string().trim().min(1).max(5_000) }))
+      .min(1)
+      .max(200),
+    destination: z.enum(['profile', 'resume', 'both']),
+    resumeId: z.string().uuid().nullable().default(null),
+    resumeVersion: z.number().int().positive().nullable().default(null),
+    newResume: z
+      .object({
+        name: z.string().trim().min(1).max(120),
+        targetRole: nullableText(120),
+        locale: ResumeLocaleSchema,
+        templateVersionId: z.string().trim().min(1).max(100),
+      })
+      .nullable()
+      .default(null),
+  })
+  .strict();
+export const ConfirmDocumentImportResultSchema = z
+  .object({
+    profileEntryCount: z.number().int().nonnegative(),
+    resumeId: z.string().uuid().nullable(),
+  })
+  .strict();
+export const DocumentParseJobSchema = z.object({ documentId: z.string().uuid() }).strict();
+export const StorageCleanupJobSchema = z.object({ documentId: z.string().uuid() }).strict();
+
+export type DocumentFileType = z.infer<typeof DocumentFileTypeSchema>;
+export type DocumentPurpose = z.infer<typeof DocumentPurposeSchema>;
+export type DocumentStatus = z.infer<typeof DocumentStatusSchema>;
+export type DocumentSummary = z.infer<typeof DocumentSummarySchema>;
+export type DocumentPage = z.infer<typeof DocumentPageSchema>;
+export type DocumentDetail = z.infer<typeof DocumentDetailSchema>;
+export type DocumentImport = z.infer<typeof DocumentImportSchema>;
+export type ImportCandidate = z.infer<typeof ImportCandidateSchema>;
+export type ConfirmDocumentImportRequest = z.infer<typeof ConfirmDocumentImportRequestSchema>;
+export type ConfirmDocumentImportResult = z.infer<typeof ConfirmDocumentImportResultSchema>;
+export type DocumentParseJob = z.infer<typeof DocumentParseJobSchema>;
+export type StorageCleanupJob = z.infer<typeof StorageCleanupJobSchema>;
+
+export const AiSupportStatusSchema = z.enum(['supported', 'conflict', 'unsupported']);
+export const AiTaskStatusSchema = z.enum([
+  'queued',
+  'processing',
+  'awaiting_confirmation',
+  'completed',
+  'failed',
+]);
+export const AiSourceSelectionSchema = z
+  .object({
+    documentIds: z.array(z.string().uuid()).max(20).default([]),
+    profileEntryIds: z.array(z.string().uuid()).max(50).default([]),
+  })
+  .strict()
+  .refine((value) => value.documentIds.length + value.profileEntryIds.length > 0, {
+    message: '请至少选择一项事实来源。',
+  });
+export const AiResumePatchSchema = z
+  .object({
+    sectionId: z.string().uuid(),
+    entryId: z.string().uuid().nullable(),
+    field: z.enum(['body', 'description']),
+    operation: z.enum(['replace', 'append']),
+  })
+  .strict();
+export const AiCitationSchema = z
+  .object({
+    id: z.string().uuid(),
+    sourceType: z.enum(['profile', 'document']),
+    sourceId: z.string().uuid(),
+    chunkId: z.string().uuid().nullable(),
+    label: z.string().min(1).max(255),
+    excerpt: z.string().min(1).max(800),
+    quoteRange: z
+      .object({ start: z.number().int().nonnegative(), end: z.number().int().positive() })
+      .nullable(),
+  })
+  .strict();
+export const ResumeSuggestionSchema = z
+  .object({
+    id: z.string().uuid(),
+    text: z.string().trim().min(1).max(5_000),
+    beforeText: z.string().max(5_000),
+    citations: z.array(AiCitationSchema).min(1).max(20),
+    supportStatus: AiSupportStatusSchema,
+    missingFacts: z.array(z.string().max(300)).max(20),
+    riskFlags: z.array(z.string().max(120)).max(20),
+    patch: AiResumePatchSchema,
+    decision: z.enum(['pending', 'accepted', 'rejected']),
+    editedText: z.string().max(5_000).nullable(),
+    appliedAt: z.string().datetime().nullable(),
+  })
+  .strict();
+export const CreateAiTaskRequestSchema = z
+  .object({
+    resumeId: z.string().uuid(),
+    sectionId: z.string().uuid(),
+    baseVersion: z.number().int().positive(),
+    instruction: z.string().trim().min(3).max(2_000),
+    jobDescription: z.string().trim().max(10_000).nullable().default(null),
+    sources: AiSourceSelectionSchema,
+    consentToThirdParty: z.literal(true, {
+      errorMap: () => ({ message: '请先同意必要材料将发送给模型服务商。' }),
+    }),
+  })
+  .strict();
+export const AiTaskSchema = z
+  .object({
+    id: z.string().uuid(),
+    resumeId: z.string().uuid(),
+    sectionId: z.string().uuid(),
+    baseVersion: z.number().int().positive(),
+    status: AiTaskStatusSchema,
+    progress: z.number().int().min(0).max(100),
+    provider: z.enum(['mock', 'qwen']),
+    model: z.string().min(1).max(120),
+    promptVersion: z.string().min(1).max(80),
+    errorCode: z.string().max(80).nullable(),
+    errorMessage: z.string().max(500).nullable(),
+    suggestions: z.array(ResumeSuggestionSchema).max(10),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+export const DecideAiSuggestionRequestSchema = z
+  .object({
+    baseVersion: z.number().int().positive(),
+    editedText: z.string().trim().min(1).max(5_000).nullable().default(null),
+  })
+  .strict();
+export const AiTaskEventSchema = z
+  .object({
+    sequence: z.number().int().positive(),
+    type: z.enum([
+      'started',
+      'progress',
+      'delta',
+      'suggestion',
+      'completed',
+      'failed',
+      'heartbeat',
+    ]),
+    data: z.record(z.unknown()),
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+export const AiGenerateJobSchema = z.object({ taskId: z.string().uuid() }).strict();
+export const DocumentEmbedJobSchema = z.object({ documentId: z.string().uuid() }).strict();
+
+export type AiSupportStatus = z.infer<typeof AiSupportStatusSchema>;
+export type AiTaskStatus = z.infer<typeof AiTaskStatusSchema>;
+export type AiSourceSelection = z.infer<typeof AiSourceSelectionSchema>;
+export type AiResumePatch = z.infer<typeof AiResumePatchSchema>;
+export type AiCitation = z.infer<typeof AiCitationSchema>;
+export type ResumeSuggestion = z.infer<typeof ResumeSuggestionSchema>;
+export type CreateAiTaskRequest = z.infer<typeof CreateAiTaskRequestSchema>;
+export type AiTask = z.infer<typeof AiTaskSchema>;
+export type DecideAiSuggestionRequest = z.infer<typeof DecideAiSuggestionRequestSchema>;
+export type AiTaskEvent = z.infer<typeof AiTaskEventSchema>;
+export type AiGenerateJob = z.infer<typeof AiGenerateJobSchema>;
+export type DocumentEmbedJob = z.infer<typeof DocumentEmbedJobSchema>;

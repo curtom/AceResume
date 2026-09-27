@@ -8,9 +8,12 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run && tsx --tsconfig tsconfig.json tests/health-injection.smoke.ts",
-    "test:integration": "tsx --env-file=../../.env --tsconfig tsconfig.json tests/stage2.integration.ts"
+    "test:integration": "tsx --env-file=../../.env --tsconfig tsconfig.json tests/stage2.integration.ts && tsx --env-file=../../.env --tsconfig tsconfig.json tests/stage3.integration.ts && tsx --env-file=../../.env --tsconfig tsconfig.json tests/stage4.integration.ts && tsx --env-file=../../.env --tsconfig tsconfig.json tests/stage5.integration.ts && tsx --env-file=../../.env --tsconfig tsconfig.json tests/stage6.integration.ts"
   },
   "dependencies": {
+    "@aceresume/ai-core": "workspace:*",
+    "@aceresume/resume-schema": "workspace:*",
+    "@aceresume/template-engine": "workspace:*",
     "@aceresume/config": "workspace:*",
     "@aceresume/contracts": "workspace:*",
     "@nestjs/common": "^11.0.1",

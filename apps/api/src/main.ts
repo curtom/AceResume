@@ -11,6 +11,8 @@ async function bootstrap(): Promise<void> {
   const environment = loadEnvironment(ApiEnvironmentSchema, process.env);
   const logger = new StructuredLogger();
   const app = await NestFactory.create(AppModule, { logger });
+  if (environment.NODE_ENV === 'development')
+    app.getHttpAdapter().getInstance().set('trust proxy', 'loopback');
   app.enableCors({ origin: environment.WEB_ORIGIN, credentials: true });
   app.setGlobalPrefix('api/v1');
   app.useGlobalInterceptors(new RequestIdInterceptor());

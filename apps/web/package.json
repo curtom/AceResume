@@ -11,6 +11,12 @@
   },
   "dependencies": {
     "@aceresume/contracts": "workspace:*",
+    "@aceresume/resume-schema": "workspace:*",
+    "@aceresume/template-engine": "workspace:*",
+    "@tiptap/extension-link": "^3.4.1",
+    "@tiptap/extension-underline": "^3.4.1",
+    "@tiptap/starter-kit": "^3.4.1",
+    "@tiptap/vue-3": "^3.4.1",
     "ant-design-vue": "^4.2.6",
     "axios": "^1.10.0",
     "pinia": "^3.0.3",

@@ -1,0 +1,26 @@
+{
+  "name": "@aceresume/ai-core",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "verify:qwen": "tsx --env-file=../../.env scripts/verify-qwen.ts"
+  },
+  "dependencies": {
+    "@aceresume/contracts": "workspace:*",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "type": "module"
+}

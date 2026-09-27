@@ -19,7 +19,7 @@
     "lint:eslint": "eslint . --max-warnings=0",
     "lint:style": "stylelint \"**/*.{css,less}\" --allow-empty-input",
     "format:check": "prettier --check .",
-    "typecheck": "corepack pnpm --filter @aceresume/config --filter @aceresume/contracts run build && corepack pnpm --recursive --if-present run typecheck",
+    "typecheck": "corepack pnpm --filter @aceresume/resume-schema build && corepack pnpm --filter @aceresume/config --filter @aceresume/contracts --filter @aceresume/template-engine --filter @aceresume/ai-core run build && corepack pnpm --recursive --if-present run typecheck",
     "test": "corepack pnpm --recursive --if-present run test",
     "test:integration": "corepack pnpm --filter @aceresume/api test:integration",
     "build": "corepack pnpm --recursive --if-present run build",

@@ -81,7 +81,7 @@ async function submit(): Promise<void> {
     if (props.mode === 'login') {
       await auth.login({ email: form.email.trim().toLowerCase(), password: form.password });
       await router.replace(
-        typeof route.query.redirect === 'string' ? route.query.redirect : '/profile',
+        typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard',
       );
     } else if (props.mode === 'register') {
       successMessage.value = await authApi.register({

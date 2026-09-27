@@ -5,6 +5,8 @@ coverage/
 .playwright-mcp/
 playwright-report/
 test-results/
+tmp/
+output/pdf/
 stage-0-pdf-page-1.png
 prototypes/stage-0-pdf/*.png
 prototypes/stage-0-pdf/fonts/*.ttf

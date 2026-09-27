@@ -57,3 +57,7 @@ export function getApiErrorMessage(error: unknown): string {
     return error.issues[0].message;
   return '暂时无法连接服务，请稍后重试。';
 }
+
+export function getApiErrorCode(error: unknown): string | undefined {
+  return axios.isAxiosError<ApiError>(error) ? error.response?.data.code : undefined;
+}

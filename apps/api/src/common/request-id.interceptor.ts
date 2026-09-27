@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
+import { Injectable, StreamableFile } from '@nestjs/common';
 import { map, type Observable } from 'rxjs';
 
 type RequestWithId = { requestId?: string };
@@ -11,6 +11,8 @@ export class RequestIdInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest<RequestWithId>();
     const requestId = request.requestId ?? randomUUID();
     request.requestId = requestId;
-    return next.handle().pipe(map((data: unknown) => ({ data, requestId })));
+    return next
+      .handle()
+      .pipe(map((data: unknown) => (data instanceof StreamableFile ? data : { data, requestId })));
   }
 }

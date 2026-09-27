@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -8,9 +9,23 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  vector,
   varchar,
 } from 'drizzle-orm/pg-core';
-import type { ProfileEntryContent } from '@aceresume/contracts';
+import type {
+  AiTaskEvent,
+  CreateAiTaskRequest,
+  ImportCandidate,
+  ProfileEntryContent,
+  RenderDiagnostics,
+  ResumeSuggestion,
+} from '@aceresume/contracts';
+import type {
+  ResumeDocument,
+  ResumeSection,
+  ResumeTheme,
+  TemplateDefinition,
+} from '@aceresume/resume-schema';
 
 export const userRole = pgEnum('user_role', ['user', 'admin']);
 export const userStatus = pgEnum('user_status', ['active', 'disabled']);
@@ -19,6 +34,63 @@ export const profileEntryType = pgEnum('profile_entry_type', [
   'project',
   'experience',
   'skill',
+]);
+export const resumeStatus = pgEnum('resume_status', ['active', 'archived']);
+export const resumeSource = pgEnum('resume_source', ['blank', 'profile', 'import']);
+export const documentFileType = pgEnum('document_file_type', ['docx', 'pdf', 'txt', 'md']);
+export const documentPurpose = pgEnum('document_purpose', ['material', 'resume']);
+export const documentStatus = pgEnum('document_status', [
+  'queued',
+  'parsing',
+  'ready',
+  'failed',
+  'deleting',
+]);
+export const documentImportStatus = pgEnum('document_import_status', ['pending', 'confirmed']);
+export const templateVersionStatus = pgEnum('template_version_status', [
+  'draft',
+  'published',
+  'retired',
+]);
+export const exportJobStatus = pgEnum('export_job_status', [
+  'queued',
+  'processing',
+  'completed',
+  'failed',
+]);
+export const aiTaskStatus = pgEnum('ai_task_status', [
+  'queued',
+  'processing',
+  'awaiting_confirmation',
+  'completed',
+  'failed',
+]);
+export const aiGenerationDecision = pgEnum('ai_generation_decision', [
+  'pending',
+  'accepted',
+  'rejected',
+]);
+export const aiSourceType = pgEnum('ai_source_type', ['profile', 'document']);
+export const aiTaskEventType = pgEnum('ai_task_event_type', [
+  'started',
+  'progress',
+  'delta',
+  'suggestion',
+  'completed',
+  'failed',
+  'heartbeat',
+]);
+export const resumeSectionType = pgEnum('resume_section_type', [
+  'basic',
+  'target',
+  'education',
+  'experience',
+  'project',
+  'campus',
+  'skill',
+  'award',
+  'summary',
+  'custom',
 ]);
 
 const timestamps = {
@@ -131,5 +203,301 @@ export const profileEntries = pgTable(
   },
   (table) => [
     index('profile_entries_user_type_order_idx').on(table.userId, table.type, table.sortOrder),
+  ],
+);
+
+export const templates = pgTable('templates', {
+  id: varchar('id', { length: 60 }).primaryKey(),
+  name: varchar('name', { length: 80 }).notNull(),
+  description: varchar('description', { length: 240 }).notNull(),
+  category: varchar('category', { length: 30 }).notNull(),
+  layout: varchar('layout', { length: 30 }).notNull(),
+  isPublic: boolean('is_public').notNull().default(false),
+  ...timestamps,
+});
+
+export const templateVersions = pgTable(
+  'template_versions',
+  {
+    id: varchar('id', { length: 100 }).primaryKey(),
+    templateId: varchar('template_id', { length: 60 })
+      .notNull()
+      .references(() => templates.id, { onDelete: 'restrict' }),
+    version: integer('version').notNull(),
+    status: templateVersionStatus('status').notNull().default('draft'),
+    definition: jsonb('definition').$type<TemplateDefinition>().notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('template_versions_template_version_unique').on(table.templateId, table.version),
+  ],
+);
+
+export const resumes = pgTable(
+  'resumes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 120 }).notNull(),
+    targetRole: varchar('target_role', { length: 120 }),
+    locale: varchar('locale', { length: 10 }).notNull().default('zh-CN'),
+    templateVersionId: varchar('template_version_id', { length: 100 }).notNull(),
+    theme: jsonb('theme').$type<ResumeTheme>().notNull(),
+    status: resumeStatus('status').notNull().default('active'),
+    source: resumeSource('source').notNull(),
+    thumbnailStatus: varchar('thumbnail_status', { length: 20 }).notNull().default('placeholder'),
+    version: integer('version').notNull().default(1),
+    lastSaveKey: uuid('last_save_key'),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    index('resumes_user_status_updated_idx').on(table.userId, table.status, table.updatedAt),
+  ],
+);
+
+export const resumeSections = pgTable(
+  'resume_sections',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    resumeId: uuid('resume_id')
+      .notNull()
+      .references(() => resumes.id, { onDelete: 'cascade' }),
+    type: resumeSectionType('section_type').notNull(),
+    title: varchar('title', { length: 80 }).notNull(),
+    content: jsonb('content').$type<ResumeSection['content']>().notNull(),
+    sortOrder: integer('sort_order').notNull(),
+    isVisible: boolean('is_visible').notNull().default(true),
+    styleOverride: jsonb('style_override').$type<Record<string, string | number>>(),
+    schemaVersion: integer('schema_version').notNull().default(1),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('resume_sections_resume_order_unique').on(table.resumeId, table.sortOrder),
+    index('resume_sections_user_resume_idx').on(table.userId, table.resumeId),
+  ],
+);
+
+export const exportJobs = pgTable(
+  'export_jobs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    resumeId: uuid('resume_id')
+      .notNull()
+      .references(() => resumes.id, { onDelete: 'cascade' }),
+    resumeVersion: integer('resume_version').notNull(),
+    templateVersionId: varchar('template_version_id', { length: 100 })
+      .notNull()
+      .references(() => templateVersions.id, { onDelete: 'restrict' }),
+    idempotencyKey: uuid('idempotency_key').notNull(),
+    status: exportJobStatus('status').notNull().default('queued'),
+    inputSnapshot: jsonb('input_snapshot').$type<ResumeDocument>().notNull(),
+    objectKey: varchar('object_key', { length: 500 }),
+    fileName: varchar('file_name', { length: 180 }).notNull(),
+    diagnostics: jsonb('diagnostics').$type<RenderDiagnostics>(),
+    errorCode: varchar('error_code', { length: 80 }),
+    errorMessage: varchar('error_message', { length: 500 }),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('export_jobs_user_idempotency_unique').on(table.userId, table.idempotencyKey),
+    index('export_jobs_user_created_idx').on(table.userId, table.createdAt),
+    index('export_jobs_resume_version_idx').on(table.resumeId, table.resumeVersion),
+  ],
+);
+
+export const documents = pgTable(
+  'documents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    fileName: varchar('file_name', { length: 255 }).notNull(),
+    fileType: documentFileType('file_type').notNull(),
+    purpose: documentPurpose('purpose').notNull().default('material'),
+    mimeType: varchar('mime_type', { length: 120 }).notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    sha256: varchar('sha256', { length: 64 }).notNull(),
+    objectKey: varchar('object_key', { length: 500 }).notNull(),
+    status: documentStatus('status').notNull().default('queued'),
+    pageCount: integer('page_count'),
+    chunkCount: integer('chunk_count').notNull().default(0),
+    errorCode: varchar('error_code', { length: 80 }),
+    errorMessage: varchar('error_message', { length: 500 }),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    index('documents_user_created_idx').on(table.userId, table.createdAt),
+    index('documents_user_status_idx').on(table.userId, table.status),
+  ],
+);
+
+export const documentChunks = pgTable(
+  'document_chunks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    documentId: uuid('document_id')
+      .notNull()
+      .references(() => documents.id, { onDelete: 'cascade' }),
+    content: text('content').notNull(),
+    pageNumber: integer('page_number'),
+    paragraphStart: integer('paragraph_start'),
+    paragraphEnd: integer('paragraph_end'),
+    sectionPath: varchar('section_path', { length: 300 }),
+    chunkIndex: integer('chunk_index').notNull(),
+    tokenCount: integer('token_count').notNull(),
+    embedding: vector('embedding', { dimensions: 1024 }),
+    embeddingModel: varchar('embedding_model', { length: 120 }),
+    embeddedAt: timestamp('embedded_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('document_chunks_document_index_unique').on(table.documentId, table.chunkIndex),
+    index('document_chunks_user_document_idx').on(table.userId, table.documentId),
+  ],
+);
+
+export const aiTasks = pgTable(
+  'ai_tasks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    resumeId: uuid('resume_id')
+      .notNull()
+      .references(() => resumes.id, { onDelete: 'cascade' }),
+    sectionId: uuid('section_id').notNull(),
+    baseVersion: integer('base_version').notNull(),
+    status: aiTaskStatus('status').notNull().default('queued'),
+    progress: integer('progress').notNull().default(0),
+    provider: varchar('provider', { length: 20 }).notNull(),
+    model: varchar('model', { length: 120 }).notNull(),
+    promptVersion: varchar('prompt_version', { length: 80 }).notNull(),
+    input: jsonb('input').$type<CreateAiTaskRequest>().notNull(),
+    sequence: integer('sequence').notNull().default(0),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    errorCode: varchar('error_code', { length: 80 }),
+    errorMessage: varchar('error_message', { length: 500 }),
+    consentedAt: timestamp('consented_at', { withTimezone: true }).notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    index('ai_tasks_user_created_idx').on(table.userId, table.createdAt),
+    index('ai_tasks_resume_created_idx').on(table.resumeId, table.createdAt),
+  ],
+);
+
+export const aiGenerations = pgTable(
+  'ai_generations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => aiTasks.id, { onDelete: 'cascade' }),
+    suggestion: jsonb('suggestion').$type<ResumeSuggestion>().notNull(),
+    decision: aiGenerationDecision('decision').notNull().default('pending'),
+    editedText: text('edited_text'),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    appliedAt: timestamp('applied_at', { withTimezone: true }),
+    appliedResumeVersion: integer('applied_resume_version'),
+    ...timestamps,
+  },
+  (table) => [
+    index('ai_generations_task_created_idx').on(table.taskId, table.createdAt),
+    index('ai_generations_user_created_idx').on(table.userId, table.createdAt),
+  ],
+);
+
+export const aiCitations = pgTable(
+  'ai_citations',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    generationId: uuid('generation_id')
+      .notNull()
+      .references(() => aiGenerations.id, { onDelete: 'cascade' }),
+    sourceType: aiSourceType('source_type').notNull(),
+    sourceId: uuid('source_id').notNull(),
+    chunkId: uuid('chunk_id').references(() => documentChunks.id, { onDelete: 'set null' }),
+    label: varchar('label', { length: 255 }).notNull(),
+    excerpt: varchar('excerpt', { length: 800 }).notNull(),
+    quoteRange: jsonb('quote_range').$type<{ start: number; end: number } | null>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('ai_citations_generation_idx').on(table.generationId),
+    index('ai_citations_user_source_idx').on(table.userId, table.sourceId),
+  ],
+);
+
+export const aiTaskEvents = pgTable(
+  'ai_task_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => aiTasks.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sequence: integer('sequence').notNull(),
+    type: aiTaskEventType('event_type').notNull(),
+    data: jsonb('data').$type<AiTaskEvent['data']>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('ai_task_events_task_sequence_unique').on(table.taskId, table.sequence),
+    index('ai_task_events_user_task_idx').on(table.userId, table.taskId),
+  ],
+);
+
+export const documentImports = pgTable(
+  'document_imports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    documentId: uuid('document_id')
+      .notNull()
+      .references(() => documents.id, { onDelete: 'cascade' }),
+    status: documentImportStatus('status').notNull().default('pending'),
+    candidates: jsonb('candidates').$type<ImportCandidate[]>().notNull(),
+    confirmedSelection: jsonb('confirmed_selection').$type<Array<{ id: string; value: string }>>(),
+    destination: varchar('destination', { length: 20 }),
+    resumeId: uuid('resume_id').references(() => resumes.id, { onDelete: 'set null' }),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('document_imports_document_unique').on(table.documentId),
+    index('document_imports_user_created_idx').on(table.userId, table.createdAt),
   ],
 );

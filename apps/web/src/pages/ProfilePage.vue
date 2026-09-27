@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
 import {
   EducationContentSchema,
   ExperienceContentSchema,
@@ -13,9 +12,9 @@ import {
   type ProfileEntryType,
 } from '@aceresume/contracts';
 import ProfileEntrySection from '@/components/ProfileEntrySection.vue';
+import AppSidebar from '@/components/AppSidebar.vue';
 import { getApiErrorMessage } from '@/api/http';
 import * as profileApi from '@/api/profile';
-import { useAuthStore } from '@/stores/auth';
 
 type ProfileTab = 'basic' | ProfileEntryType;
 type EntryForm = {
@@ -38,8 +37,6 @@ type EntryForm = {
   url: string;
   proficiency: string;
 };
-const router = useRouter();
-const auth = useAuthStore();
 const profile = ref<Profile | null>(null);
 const basic = reactive({
   fullName: '',
@@ -333,34 +330,13 @@ async function moveEntry(index: number, direction: -1 | 1): Promise<void> {
   }
 }
 
-async function signOut(): Promise<void> {
-  await auth.logout();
-  await router.replace('/login');
-}
 onMounted(() => void loadProfile());
 </script>
 
 <template>
-  <main class="profile-shell">
-    <aside class="profile-sidebar">
-      <RouterLink class="brand" to="/profile"><b>A</b><span>AceResume</span></RouterLink>
-      <p class="nav-label">资料库</p>
-      <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        type="button"
-        :class="{ active: activeTab === tab.key }"
-        @click="selectTab(tab.key)"
-      >
-        <span>{{ tab.label }}</span
-        ><i>→</i>
-      </button>
-      <div class="sidebar-user">
-        <strong>{{ auth.user?.email }}</strong
-        ><button type="button" @click="signOut">安全退出</button>
-      </div>
-    </aside>
-    <section class="profile-main">
+  <div class="profile-shell">
+    <AppSidebar />
+    <main class="profile-main">
       <header class="page-header">
         <div>
           <p>PERSONAL ARCHIVE</p>
@@ -372,6 +348,17 @@ onMounted(() => void loadProfile());
           ><span>修改不会自动覆盖已有简历</span>
         </div>
       </header>
+      <nav class="profile-tabs" aria-label="个人资料分类">
+        <button
+          v-for="tab in tabs"
+          :key="tab.key"
+          type="button"
+          :class="{ active: activeTab === tab.key }"
+          @click="selectTab(tab.key)"
+        >
+          <span>{{ tab.label }}</span>
+        </button>
+      </nav>
       <div class="content-area">
         <a-alert
           v-if="errorMessage"
@@ -440,7 +427,7 @@ onMounted(() => void loadProfile());
           @change="(value: number) => loadEntries(activeTab as ProfileEntryType, value)"
         />
       </div>
-    </section>
+    </main>
     <a-modal
       v-model:open="isModalOpen"
       :title="entryForm.id ? '编辑资料条目' : '新增资料条目'"
@@ -523,90 +510,38 @@ onMounted(() => void loadProfile());
         /></label>
       </div>
     </a-modal>
-  </main>
+  </div>
 </template>
 
 <style scoped>
 .profile-shell {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: 14rem minmax(0, 1fr);
+  display: flex;
   background: #f8f7f2;
 }
-.profile-sidebar {
-  position: sticky;
-  top: 0;
+.profile-main {
+  min-width: 0;
+  flex: 1;
+}
+.profile-tabs {
   display: flex;
-  height: 100vh;
-  flex-direction: column;
-  padding: 2rem 1.1rem 1.2rem;
-  border-right: 1px solid #d8d4c9;
-  background: #f2efe6;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding: 1rem 3rem 0;
+  background: rgb(255 253 248 / 75%);
 }
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 0 0.5rem 3rem;
-  color: var(--ink-color);
-  font-family: var(--serif);
-  font-size: 1.1rem;
-  text-decoration: none;
-}
-.brand b {
-  display: grid;
-  width: 2.2rem;
-  height: 2.2rem;
-  place-items: center;
-  background: var(--brand-blue);
-  color: white;
-  box-shadow: 4px 4px 0 var(--yellow);
-  transform: rotate(-2deg);
-}
-.nav-label {
-  margin: 0 0.7rem 0.7rem;
-  color: #999488;
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-}
-.profile-sidebar > button {
-  display: flex;
-  min-height: 2.8rem;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 0.8rem;
+.profile-tabs button {
+  min-width: max-content;
+  padding: 0.65rem 1rem;
   border: 0;
+  border-bottom: 2px solid transparent;
   background: transparent;
-  color: #666c78;
-  text-align: left;
+  color: #717783;
 }
-.profile-sidebar > button.active {
-  background: var(--ink-color);
-  color: white;
-  box-shadow: 3px 3px 0 var(--coral);
-}
-.profile-sidebar i {
-  font-style: normal;
-}
-.sidebar-user {
-  margin-top: auto;
-  padding: 1rem 0.6rem 0;
-  border-top: 1px solid #d8d4c9;
-}
-.sidebar-user strong {
-  display: block;
-  overflow: hidden;
-  margin-bottom: 0.6rem;
-  font-size: 0.7rem;
-  text-overflow: ellipsis;
-}
-.sidebar-user button {
-  padding: 0;
-  border: 0;
-  background: transparent;
+.profile-tabs button.active {
+  border-bottom-color: var(--brand-blue);
   color: var(--brand-blue);
-  font-size: 0.7rem;
+  font-weight: 700;
 }
 .page-header {
   display: flex;
@@ -707,28 +642,9 @@ onMounted(() => void loadProfile());
   box-shadow: 4px 4px 0 var(--ink-color);
 }
 @media (max-width: 900px) {
-  .profile-shell {
-    grid-template-columns: 1fr;
-  }
-  .profile-sidebar {
-    position: static;
-    height: auto;
-  }
-  .profile-sidebar .brand,
-  .nav-label,
-  .sidebar-user {
-    display: none;
-  }
-  .profile-sidebar {
-    flex-direction: row;
-    overflow-x: auto;
-    padding: 0.7rem;
-  }
-  .profile-sidebar > button {
-    white-space: nowrap;
-  }
   .page-header,
-  .content-area {
+  .content-area,
+  .profile-tabs {
     padding-right: 1.2rem;
     padding-left: 1.2rem;
   }

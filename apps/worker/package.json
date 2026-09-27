@@ -8,10 +8,18 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@aceresume/contracts": "workspace:*",
+    "@aceresume/ai-core": "workspace:*",
     "@aceresume/config": "workspace:*",
+    "@aceresume/contracts": "workspace:*",
+    "@aceresume/resume-schema": "workspace:*",
+    "@aceresume/template-engine": "workspace:*",
     "bullmq": "^5.58.5",
-    "nodemailer": "^10.0.0"
+    "mammoth": "^1.12.3",
+    "minio": "^8.0.4",
+    "nodemailer": "^10.0.0",
+    "pdfjs-dist": "^6.3.289",
+    "playwright": "^1.54.2",
+    "postgres": "^3.4.7"
   },
   "devDependencies": {
     "@types/nodemailer": "^8.0.1",
