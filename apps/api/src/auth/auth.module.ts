@@ -10,6 +10,6 @@ import { JobsModule } from '../jobs/jobs.module.js';
   imports: [JobsModule],
   controllers: [AuthController],
   providers: [AuthRepository, AuthService, AuthGuard, RateLimitService],
-  exports: [AuthService, AuthGuard],
+  exports: [AuthService, AuthGuard, RateLimitService],
 })
 export class AuthModule {}

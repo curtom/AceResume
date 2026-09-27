@@ -36,6 +36,7 @@ export const ApiEnvironmentSchema = InfrastructureEnvironmentSchema.extend({
   API_PORT: portSchema,
   WEB_ORIGIN: z.string().url(),
   AUTH_JWT_SECRET: z.string().min(32),
+  ADMIN_CONFIG_ENCRYPTION_KEY: z.string().min(32).optional(),
   AUTH_REQUIRE_EMAIL_VERIFICATION: booleanEnvironmentSchema,
   DOCUMENT_MAX_FILE_BYTES: z.coerce
     .number()
@@ -53,6 +54,7 @@ export const ApiEnvironmentSchema = InfrastructureEnvironmentSchema.extend({
 
 export const WorkerEnvironmentSchema = InfrastructureEnvironmentSchema.extend({
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(10),
+  ADMIN_CONFIG_ENCRYPTION_KEY: z.string().min(32).optional(),
   DOCUMENT_MAX_PARSE_MS: z.coerce.number().int().min(1_000).default(30_000),
   DOCUMENT_MAX_PAGES: z.coerce.number().int().min(1).default(100),
   DOCUMENT_MAX_TEXT_CHARS: z.coerce.number().int().min(1_000).default(1_000_000),

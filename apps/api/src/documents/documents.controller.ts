@@ -26,6 +26,7 @@ import {
 import { AuthGuard } from '../auth/auth.guard.js';
 import { CurrentUserParam } from '../auth/current-user.decorator.js';
 import type { CurrentUser } from '../auth/auth.service.js';
+import { RateLimitService } from '../auth/rate-limit.service.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { DocumentsService, type UploadedDocument } from './documents.service.js';
 
@@ -34,7 +35,10 @@ import { DocumentsService, type UploadedDocument } from './documents.service.js'
 @UseGuards(AuthGuard)
 @Controller('documents')
 export class DocumentsController {
-  constructor(@Inject(DocumentsService) private readonly service: DocumentsService) {}
+  constructor(
+    @Inject(DocumentsService) private readonly service: DocumentsService,
+    @Inject(RateLimitService) private readonly rateLimit: RateLimitService,
+  ) {}
   @Get()
   list(
     @CurrentUserParam() user: CurrentUser,
@@ -48,7 +52,8 @@ export class DocumentsController {
     return this.service.get(user.id, id);
   }
   @Get(':id/download')
-  download(@CurrentUserParam() user: CurrentUser, @Param('id', ParseUUIDPipe) id: string) {
+  async download(@CurrentUserParam() user: CurrentUser, @Param('id', ParseUUIDPipe) id: string) {
+    await this.rateLimit.consume('document-download', user.id, 30, 60);
     return this.service.download(user.id, id);
   }
   @Post()

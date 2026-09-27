@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { TemplateDefinition } from '@aceresume/resume-schema';
 import { DatabaseService } from '../infrastructure/database.service.js';
 import { templateVersions, templates } from '../infrastructure/schema.js';
@@ -45,5 +45,21 @@ export class TemplatesRepository {
       .where(eq(templateVersions.status, 'published'))
       .orderBy(asc(templates.createdAt));
     return rows.map((row) => row.definition);
+  }
+
+  async findVersion(
+    versionId: string,
+    publishedOnly: boolean,
+  ): Promise<TemplateDefinition | undefined> {
+    const [row] = await this.database.db
+      .select({ definition: templateVersions.definition })
+      .from(templateVersions)
+      .where(
+        publishedOnly
+          ? and(eq(templateVersions.id, versionId), eq(templateVersions.status, 'published'))
+          : eq(templateVersions.id, versionId),
+      )
+      .limit(1);
+    return row?.definition;
   }
 }

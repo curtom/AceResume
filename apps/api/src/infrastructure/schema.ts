@@ -80,6 +80,8 @@ export const aiTaskEventType = pgEnum('ai_task_event_type', [
   'failed',
   'heartbeat',
 ]);
+export const promptVersionStatus = pgEnum('prompt_version_status', ['draft', 'active', 'retired']);
+export const auditResult = pgEnum('audit_result', ['success', 'failed']);
 export const resumeSectionType = pgEnum('resume_section_type', [
   'basic',
   'target',
@@ -396,6 +398,8 @@ export const aiTasks = pgTable(
     input: jsonb('input').$type<CreateAiTaskRequest>().notNull(),
     sequence: integer('sequence').notNull().default(0),
     attemptCount: integer('attempt_count').notNull().default(0),
+    inputTokenCount: integer('input_token_count').notNull().default(0),
+    outputTokenCount: integer('output_token_count').notNull().default(0),
     errorCode: varchar('error_code', { length: 80 }),
     errorMessage: varchar('error_message', { length: 500 }),
     consentedAt: timestamp('consented_at', { withTimezone: true }).notNull(),
@@ -499,5 +503,64 @@ export const documentImports = pgTable(
   (table) => [
     uniqueIndex('document_imports_document_unique').on(table.documentId),
     index('document_imports_user_created_idx').on(table.userId, table.createdAt),
+  ],
+);
+
+export const modelConfigs = pgTable('model_configs', {
+  id: varchar('id', { length: 60 }).primaryKey(),
+  provider: varchar('provider', { length: 20 }).notNull(),
+  baseUrl: varchar('base_url', { length: 500 }).notNull(),
+  chatModel: varchar('chat_model', { length: 120 }).notNull(),
+  embeddingModel: varchar('embedding_model', { length: 120 }).notNull(),
+  embeddingDimension: integer('embedding_dimension').notNull(),
+  timeoutMs: integer('timeout_ms').notNull(),
+  maxOutputTokens: integer('max_output_tokens').notNull(),
+  temperaturePermille: integer('temperature_permille').notNull(),
+  supportsJson: boolean('supports_json').notNull().default(true),
+  supportsTools: boolean('supports_tools').notNull().default(false),
+  isEnabled: boolean('is_enabled').notNull().default(true),
+  secretCiphertext: text('secret_ciphertext'),
+  secretIv: varchar('secret_iv', { length: 64 }),
+  secretTag: varchar('secret_tag', { length: 64 }),
+  ...timestamps,
+});
+
+export const promptVersions = pgTable(
+  'prompt_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    key: varchar('prompt_key', { length: 80 }).notNull(),
+    version: integer('version').notNull(),
+    content: text('content').notNull(),
+    status: promptVersionStatus('status').notNull().default('draft'),
+    rolloutPercent: integer('rollout_percent').notNull().default(0),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'restrict' }),
+    activatedAt: timestamp('activated_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('prompt_versions_key_version_unique').on(table.key, table.version)],
+);
+
+export const auditLogs = pgTable(
+  'audit_logs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    adminUserId: uuid('admin_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    adminEmail: varchar('admin_email', { length: 254 }).notNull(),
+    action: varchar('action', { length: 100 }).notNull(),
+    targetType: varchar('target_type', { length: 80 }).notNull(),
+    targetId: varchar('target_id', { length: 120 }).notNull(),
+    reason: varchar('reason', { length: 500 }).notNull(),
+    result: auditResult('result').notNull(),
+    requestId: uuid('request_id'),
+    metadata: jsonb('metadata').$type<Record<string, string | number | boolean | null>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('audit_logs_created_idx').on(table.createdAt),
+    index('audit_logs_admin_created_idx').on(table.adminUserId, table.createdAt),
+    index('audit_logs_target_idx').on(table.targetType, table.targetId),
   ],
 );

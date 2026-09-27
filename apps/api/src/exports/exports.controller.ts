@@ -15,6 +15,7 @@ import { CreateExportRequestSchema, type CreateExportRequest } from '@aceresume/
 import { AuthGuard } from '../auth/auth.guard.js';
 import { CurrentUserParam } from '../auth/current-user.decorator.js';
 import type { CurrentUser } from '../auth/auth.service.js';
+import { RateLimitService } from '../auth/rate-limit.service.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { ExportsService } from './exports.service.js';
 
@@ -23,7 +24,10 @@ import { ExportsService } from './exports.service.js';
 @UseGuards(AuthGuard)
 @Controller()
 export class ExportsController {
-  constructor(@Inject(ExportsService) private readonly service: ExportsService) {}
+  constructor(
+    @Inject(ExportsService) private readonly service: ExportsService,
+    @Inject(RateLimitService) private readonly rateLimit: RateLimitService,
+  ) {}
 
   @Post('resumes/:resumeId/exports')
   @HttpCode(HttpStatus.ACCEPTED)
@@ -44,7 +48,8 @@ export class ExportsController {
 
   @Get('exports/:id/download')
   @ApiOperation({ summary: '下载当前用户已完成的 PDF' })
-  download(@CurrentUserParam() user: CurrentUser, @Param('id', ParseUUIDPipe) id: string) {
+  async download(@CurrentUserParam() user: CurrentUser, @Param('id', ParseUUIDPipe) id: string) {
+    await this.rateLimit.consume('pdf-download', user.id, 30, 60);
     return this.service.download(user.id, id);
   }
 }

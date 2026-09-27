@@ -123,6 +123,34 @@ export class QueueService implements OnModuleDestroy {
     );
   }
 
+  async getQueueCounts(): Promise<
+    Record<string, { waiting: number; active: number; failed: number }>
+  > {
+    const queues = {
+      email: this.emailQueue,
+      pdf: this.pdfQueue,
+      documents: this.documentQueue,
+      embeddings: this.embedQueue,
+      ai: this.aiQueue,
+      cleanup: this.cleanupQueue,
+    };
+    return Object.fromEntries(
+      await Promise.all(
+        Object.entries(queues).map(async ([name, queue]) => {
+          const counts = await queue.getJobCounts('waiting', 'active', 'failed');
+          return [
+            name,
+            {
+              waiting: counts.waiting ?? 0,
+              active: counts.active ?? 0,
+              failed: counts.failed ?? 0,
+            },
+          ];
+        }),
+      ),
+    );
+  }
+
   async onModuleDestroy(): Promise<void> {
     await this.queue.close();
     await Promise.all([

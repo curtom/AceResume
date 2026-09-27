@@ -85,8 +85,10 @@ const saveLabel = computed(
       conflict: '发现编辑冲突',
     })[saveStatus.value],
 );
-const currentTemplate = computed(() =>
-  templates.value.find((item) => item.versionId === document.value?.templateVersionId),
+const currentTemplate = computed(
+  () =>
+    detail.value?.template ??
+    templates.value.find((item) => item.versionId === document.value?.templateVersionId),
 );
 const hasBlockingPreviewRisk = computed(
   () =>
@@ -406,7 +408,11 @@ onBeforeUnmount(() => {
         <div v-if="diagnostics?.exceedsRecommendedPages" class="preview-warning">
           当前 {{ diagnostics.pageCount }} 页，超过该模板建议页数
         </div>
-        <ResumePreview :document="document" @diagnostics="diagnostics = $event" />
+        <ResumePreview
+          :document="document"
+          v-bind="currentTemplate ? { template: currentTemplate } : {}"
+          @diagnostics="diagnostics = $event"
+        />
       </section>
     </div>
     <a-modal

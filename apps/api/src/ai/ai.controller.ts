@@ -25,6 +25,7 @@ import { Observable } from 'rxjs';
 import { AuthGuard } from '../auth/auth.guard.js';
 import { CurrentUserParam } from '../auth/current-user.decorator.js';
 import type { CurrentUser } from '../auth/auth.service.js';
+import { RateLimitService } from '../auth/rate-limit.service.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { AiService } from './ai.service.js';
 
@@ -33,14 +34,18 @@ import { AiService } from './ai.service.js';
 @UseGuards(AuthGuard)
 @Controller('ai/tasks')
 export class AiController {
-  constructor(@Inject(AiService) private readonly service: AiService) {}
+  constructor(
+    @Inject(AiService) private readonly service: AiService,
+    @Inject(RateLimitService) private readonly rateLimit: RateLimitService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: '创建受控 AI 简历建议任务' })
-  create(
+  async create(
     @CurrentUserParam() user: CurrentUser,
     @Body(new ZodValidationPipe(CreateAiTaskRequestSchema)) input: CreateAiTaskRequest,
   ) {
+    await this.rateLimit.consume('ai-create', user.id, 12, 60);
     return this.service.create(user.id, input);
   }
 

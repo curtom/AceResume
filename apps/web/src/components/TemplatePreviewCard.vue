@@ -15,7 +15,7 @@ const document = computed<ResumeDocument>(() => ({
 
 <template>
   <div class="template-preview" aria-hidden="true">
-    <ResumePreview :document="document" />
+    <ResumePreview :document="document" :template="template" />
   </div>
 </template>
 

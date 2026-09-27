@@ -36,6 +36,20 @@
       "when": 1790426453649,
       "tag": "0004_swift_absorbing_man",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790477735159,
+      "tag": "0005_broken_the_hunter",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790479529421,
+      "tag": "0006_next_silvermane",
+      "breakpoints": true
     }
   ]
 }

@@ -192,6 +192,11 @@ export class AuthService {
     }
   }
 
+  async verifyPasswordForUser(userId: string, password: string): Promise<boolean> {
+    const user = await this.repository.findUserById(userId);
+    return Boolean(user && user.status === 'active' && (await verify(user.passwordHash, password)));
+  }
+
   private async createSession(
     user: NonNullable<Awaited<ReturnType<AuthRepository['findUserById']>>>,
     deviceInfo: string | null,

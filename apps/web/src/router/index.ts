@@ -46,6 +46,11 @@ export const router = createRouter({
     { path: '/templates', component: () => import('@/pages/TemplateCenterPage.vue') },
     { path: '/documents', component: () => import('@/pages/DocumentLibraryPage.vue') },
     {
+      path: '/admin/:section?',
+      component: () => import('@/pages/AdminPage.vue'),
+      meta: { requiresAdmin: true },
+    },
+    {
       path: '/health',
       component: () => import('@/pages/HealthPage.vue'),
       meta: { public: true },
@@ -57,6 +62,7 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore();
   await auth.initialize();
   if (!to.meta.public && !auth.user) return { name: 'login', query: { redirect: to.fullPath } };
+  if (to.meta.requiresAdmin && auth.user?.role !== 'admin') return '/dashboard';
   if (to.meta.public && auth.user && ['login', 'register'].includes(String(to.name)))
     return '/dashboard';
   return true;

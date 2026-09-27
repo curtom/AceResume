@@ -20,7 +20,8 @@ import {
   type ImportCandidate,
 } from '@aceresume/contracts';
 import { ResumeDocumentSchema } from '@aceresume/resume-schema';
-import { getTemplateDefinition, renderResume } from '@aceresume/template-engine';
+import { renderResume } from '@aceresume/template-engine';
+import { TemplateDefinitionSchema } from '@aceresume/resume-schema';
 import { startAiWorkers } from './ai-workers.js';
 
 const environment = loadEnvironment(WorkerEnvironmentSchema, process.env);
@@ -97,7 +98,12 @@ const pdfWorker = new Worker(
     await database`update export_jobs set status = 'processing', started_at = coalesce(started_at, now()), attempt_count = attempt_count + 1, updated_at = now(), error_code = null, error_message = null where id = ${record.id}`;
     try {
       const resume = ResumeDocumentSchema.parse(record.input_snapshot);
-      const definition = getTemplateDefinition(record.template_version_id);
+      const [templateRecord] = await database<
+        Array<{ definition: unknown }>
+      >`select definition from template_versions where id = ${record.template_version_id}`;
+      const definition = templateRecord
+        ? TemplateDefinitionSchema.parse(templateRecord.definition)
+        : undefined;
       if (!definition) throw new ExportValidationError('Template version is unavailable.');
       const fontPath = resolve(
         __dirname,

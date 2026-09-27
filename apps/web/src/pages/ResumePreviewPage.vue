@@ -38,6 +38,7 @@ onMounted(async () => {
       v-else
       class="full-preview"
       :document="resume.document"
+      :template="resume.template"
       @diagnostics="diagnostics = $event"
     />
   </main>

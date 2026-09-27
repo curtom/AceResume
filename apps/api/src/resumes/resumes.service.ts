@@ -75,6 +75,13 @@ export class ResumesService {
   async get(userId: string, id: string): Promise<ResumeDetail> {
     const result = await this.repository.find(userId, id);
     if (!result) throw this.notFound();
+    const template = await this.templates.getDefinition(result.resume.templateVersionId);
+    if (!template)
+      throw new AppException(
+        'TEMPLATE_NOT_FOUND',
+        HttpStatus.CONFLICT,
+        '该简历引用的模板版本不存在。',
+      );
     const document = ResumeDocumentSchema.parse({
       schemaVersion: 1,
       resumeId: result.resume.id,
@@ -92,7 +99,7 @@ export class ResumesService {
         ...(section.styleOverride ? { styleOverride: section.styleOverride } : {}),
       })),
     });
-    return { ...this.mapSummary(result.resume), document };
+    return { ...this.mapSummary(result.resume), document, template };
   }
 
   async create(userId: string, input: CreateResumeRequest): Promise<ResumeDetail> {
@@ -103,7 +110,7 @@ export class ResumesService {
         '旧简历导入将在阶段五开放。',
       );
     const resumeId = randomUUID();
-    const definition = this.templates.getDefinition(input.templateVersionId);
+    const definition = await this.templates.getPublishedDefinition(input.templateVersionId);
     if (!definition)
       throw new AppException(
         'TEMPLATE_NOT_FOUND',
@@ -183,7 +190,9 @@ export class ResumesService {
         HttpStatus.BAD_REQUEST,
         '请选择现有简历或填写新简历信息。',
       );
-    const definition = this.templates.getDefinition(target.newResume.templateVersionId);
+    const definition = await this.templates.getPublishedDefinition(
+      target.newResume.templateVersionId,
+    );
     if (!definition)
       throw new AppException(
         'TEMPLATE_NOT_FOUND',
@@ -460,7 +469,12 @@ export class ResumesService {
         HttpStatus.BAD_REQUEST,
         '简历文档 ID 与路径不一致。',
       );
-    if (!this.templates.getDefinition(input.document.templateVersionId))
+    const current = await this.get(userId, id);
+    const template =
+      current.document.templateVersionId === input.document.templateVersionId
+        ? await this.templates.getDefinition(input.document.templateVersionId)
+        : await this.templates.getPublishedDefinition(input.document.templateVersionId);
+    if (!template)
       throw new AppException(
         'TEMPLATE_NOT_FOUND',
         HttpStatus.BAD_REQUEST,

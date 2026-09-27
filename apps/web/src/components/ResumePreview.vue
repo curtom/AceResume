@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted } from 'vue';
-import type { ResumeDocument } from '@aceresume/resume-schema';
+import type { ResumeDocument, TemplateDefinition } from '@aceresume/resume-schema';
 import { renderResume } from '@aceresume/template-engine';
 import fontUrl from '@aceresume/template-engine/assets/NotoSansSC-Variable.ttf?url';
 import type { RenderDiagnostics } from '@aceresume/contracts';
 
-const props = defineProps<{ document: ResumeDocument }>();
+const props = defineProps<{ document: ResumeDocument; template?: TemplateDefinition }>();
 const emit = defineEmits<{ diagnostics: [value: RenderDiagnostics] }>();
 const instanceId = globalThis.crypto.randomUUID();
 const html = computed(() =>
   renderResume({
     resume: props.document,
+    ...(props.template ? { template: props.template } : {}),
     mode: 'screen',
     fontUrl,
     instanceId,

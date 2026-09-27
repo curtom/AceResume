@@ -43,6 +43,10 @@ export const ApiErrorCodeSchema = z.enum([
   'AI_RATE_LIMITED',
   'AI_CONTENT_REJECTED',
   'AI_PROVIDER_UNAVAILABLE',
+  'ADMIN_REAUTH_REQUIRED',
+  'ADMIN_SELF_ACTION_FORBIDDEN',
+  'ADMIN_TEMPLATE_STATE_INVALID',
+  'ADMIN_CONFIG_INVALID',
   'FEATURE_NOT_AVAILABLE',
   'RATE_LIMITED',
   'DEPENDENCY_UNAVAILABLE',
@@ -294,7 +298,10 @@ export const ResumeSummarySchema = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
-export const ResumeDetailSchema = ResumeSummarySchema.extend({ document: ResumeDocumentSchema });
+export const ResumeDetailSchema = ResumeSummarySchema.extend({
+  document: ResumeDocumentSchema,
+  template: TemplateDefinitionSchema,
+});
 const resumeName = z.string().trim().min(1).max(120);
 const resumeTargetRole = nullableText(120);
 const templateVersionId = z.string().trim().min(1).max(100).default('classic-single-v1');
@@ -366,20 +373,7 @@ export type UpdateResumeRequest = z.infer<typeof UpdateResumeRequestSchema>;
 export type SaveResumeRequest = z.infer<typeof SaveResumeRequestSchema>;
 export type ResumePage = z.infer<typeof ResumePageSchema>;
 
-export const TemplateSummarySchema = TemplateDefinitionSchema.pick({
-  id: true,
-  version: true,
-  versionId: true,
-  name: true,
-  description: true,
-  category: true,
-  layout: true,
-  supportedLocales: true,
-  supportedSections: true,
-  defaultTheme: true,
-  pagination: true,
-  visualStyle: true,
-});
+export const TemplateSummarySchema = TemplateDefinitionSchema;
 export const TemplateListSchema = z.object({ items: z.array(TemplateSummarySchema) }).strict();
 export type TemplateSummary = z.infer<typeof TemplateSummarySchema>;
 export type TemplateList = z.infer<typeof TemplateListSchema>;
@@ -683,3 +677,185 @@ export type DecideAiSuggestionRequest = z.infer<typeof DecideAiSuggestionRequest
 export type AiTaskEvent = z.infer<typeof AiTaskEventSchema>;
 export type AiGenerateJob = z.infer<typeof AiGenerateJobSchema>;
 export type DocumentEmbedJob = z.infer<typeof DocumentEmbedJobSchema>;
+
+export const AdminSensitiveActionSchema = z
+  .object({
+    password: PasswordSchema,
+    reason: z.string().trim().min(8).max(500),
+  })
+  .strict();
+export const AdminListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().trim().max(120).default(''),
+});
+export const AdminUserSchema = z
+  .object({
+    id: z.string().uuid(),
+    email: EmailSchema,
+    role: z.enum(['user', 'admin']),
+    status: z.enum(['active', 'disabled']),
+    isEmailVerified: z.boolean(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+export const AdminUserPageSchema = z
+  .object({
+    items: z.array(AdminUserSchema),
+    page: z.number().int().positive(),
+    pageSize: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+  })
+  .strict();
+export const AdminUpdateUserStatusSchema = AdminSensitiveActionSchema.extend({
+  status: z.enum(['active', 'disabled']),
+}).strict();
+export const AdminTemplateVersionSchema = z
+  .object({
+    definition: TemplateDefinitionSchema,
+    status: z.enum(['draft', 'published', 'retired']),
+    publishedAt: z.string().datetime().nullable(),
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+export const AdminTemplateListSchema = z
+  .object({ items: z.array(AdminTemplateVersionSchema) })
+  .strict();
+export const AdminSaveTemplateSchema = AdminSensitiveActionSchema.extend({
+  definition: TemplateDefinitionSchema,
+}).strict();
+export const AdminModelConfigSchema = z
+  .object({
+    id: z.string().min(1).max(60),
+    provider: z.enum(['mock', 'qwen']),
+    baseUrl: z.string().url(),
+    chatModel: z.string().min(1).max(120),
+    embeddingModel: z.string().min(1).max(120),
+    embeddingDimension: z.number().int().positive(),
+    timeoutMs: z.number().int().min(1_000).max(300_000),
+    maxOutputTokens: z.number().int().min(128).max(32_768),
+    temperature: z.number().min(0).max(2),
+    supportsJson: z.boolean(),
+    supportsTools: z.boolean(),
+    isEnabled: z.boolean(),
+    secretConfigured: z.boolean(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+export const AdminUpdateModelConfigSchema = AdminSensitiveActionSchema.extend({
+  provider: z.enum(['mock', 'qwen']),
+  baseUrl: z.string().url(),
+  chatModel: z.string().min(1).max(120),
+  embeddingModel: z.string().min(1).max(120),
+  embeddingDimension: z.number().int().positive(),
+  timeoutMs: z.number().int().min(1_000).max(300_000),
+  maxOutputTokens: z.number().int().min(128).max(32_768),
+  temperature: z.number().min(0).max(2),
+  supportsJson: z.boolean(),
+  supportsTools: z.boolean(),
+  isEnabled: z.boolean(),
+  secret: z.string().min(8).max(500).nullable().optional(),
+}).strict();
+export const AdminPromptVersionSchema = z
+  .object({
+    id: z.string().uuid(),
+    key: z.string().min(1).max(80),
+    version: z.number().int().positive(),
+    content: z.string().min(1).max(20_000),
+    status: z.enum(['draft', 'active', 'retired']),
+    rolloutPercent: z.number().int().min(0).max(100),
+    createdAt: z.string().datetime(),
+    activatedAt: z.string().datetime().nullable(),
+  })
+  .strict();
+export const AdminPromptListSchema = z
+  .object({ items: z.array(AdminPromptVersionSchema) })
+  .strict();
+export const AdminCreatePromptSchema = AdminSensitiveActionSchema.extend({
+  key: z.string().trim().min(1).max(80),
+  content: z.string().trim().min(1).max(20_000),
+  rolloutPercent: z.number().int().min(0).max(100).default(0),
+}).strict();
+export const AdminActivatePromptSchema = AdminSensitiveActionSchema.extend({
+  rolloutPercent: z.number().int().min(1).max(100).default(100),
+}).strict();
+export const AdminTestPromptSchema = z
+  .object({ content: z.string().trim().min(1).max(20_000) })
+  .strict();
+export const AdminPromptTestResultSchema = z
+  .object({
+    passed: z.boolean(),
+    checks: z.array(
+      z.object({ key: z.string(), passed: z.boolean(), message: z.string() }).strict(),
+    ),
+  })
+  .strict();
+export const AdminAuditLogSchema = z
+  .object({
+    id: z.string().uuid(),
+    adminUserId: z.string().uuid(),
+    adminEmail: EmailSchema,
+    action: z.string().max(100),
+    targetType: z.string().max(80),
+    targetId: z.string().max(120),
+    reason: z.string().max(500),
+    result: z.enum(['success', 'failed']),
+    requestId: z.string().uuid().nullable(),
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+export const AdminAuditPageSchema = z
+  .object({
+    items: z.array(AdminAuditLogSchema),
+    page: z.number().int().positive(),
+    pageSize: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+  })
+  .strict();
+const AdminStatusMetricSchema = z
+  .object({ status: z.string(), count: z.number().int().nonnegative() })
+  .strict();
+export const AdminMonitoringSchema = z
+  .object({
+    ai: z.object({
+      total: z.number().int().nonnegative(),
+      succeeded: z.number().int().nonnegative(),
+      failed: z.number().int().nonnegative(),
+      successRate: z.number().min(0).max(1),
+      averageLatencyMs: z.number().nonnegative(),
+      inputTokens: z.number().int().nonnegative(),
+      outputTokens: z.number().int().nonnegative(),
+      usageEstimated: z.boolean(),
+      accepted: z.number().int().nonnegative(),
+      rejected: z.number().int().nonnegative(),
+    }),
+    documents: z.array(AdminStatusMetricSchema),
+    exports: z.array(AdminStatusMetricSchema),
+    queues: z.record(
+      z.object({
+        waiting: z.number().int().nonnegative(),
+        active: z.number().int().nonnegative(),
+        failed: z.number().int().nonnegative(),
+      }),
+    ),
+    generatedAt: z.string().datetime(),
+  })
+  .strict();
+
+export type AdminListQuery = z.infer<typeof AdminListQuerySchema>;
+export type AdminUser = z.infer<typeof AdminUserSchema>;
+export type AdminUserPage = z.infer<typeof AdminUserPageSchema>;
+export type AdminUpdateUserStatus = z.infer<typeof AdminUpdateUserStatusSchema>;
+export type AdminTemplateVersion = z.infer<typeof AdminTemplateVersionSchema>;
+export type AdminSaveTemplate = z.infer<typeof AdminSaveTemplateSchema>;
+export type AdminModelConfig = z.infer<typeof AdminModelConfigSchema>;
+export type AdminUpdateModelConfig = z.infer<typeof AdminUpdateModelConfigSchema>;
+export type AdminPromptVersion = z.infer<typeof AdminPromptVersionSchema>;
+export type AdminCreatePrompt = z.infer<typeof AdminCreatePromptSchema>;
+export type AdminActivatePrompt = z.infer<typeof AdminActivatePromptSchema>;
+export type AdminTestPrompt = z.infer<typeof AdminTestPromptSchema>;
+export type AdminPromptTestResult = z.infer<typeof AdminPromptTestResultSchema>;
+export type AdminAuditLog = z.infer<typeof AdminAuditLogSchema>;
+export type AdminAuditPage = z.infer<typeof AdminAuditPageSchema>;
+export type AdminMonitoring = z.infer<typeof AdminMonitoringSchema>;

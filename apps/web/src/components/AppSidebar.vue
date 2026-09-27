@@ -43,6 +43,9 @@ async function signOut(): Promise<void> {
       <RouterLink :class="{ active: activeRoute === 'templates' }" to="/templates">
         <span class="nav-icon">▥</span><span>模板中心</span>
       </RouterLink>
+      <RouterLink v-if="auth.user?.role === 'admin'" to="/admin">
+        <span class="nav-icon">◆</span><span>管理后台</span>
+      </RouterLink>
     </nav>
     <div class="sidebar-bottom">
       <button type="button" disabled title="后续阶段开放">

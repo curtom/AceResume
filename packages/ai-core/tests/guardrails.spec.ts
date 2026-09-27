@@ -6,6 +6,8 @@ import {
   classifyProviderFailure,
   detectPromptInjection,
   detectSourceConflict,
+  decryptSecret,
+  encryptSecret,
   unsupportedEntities,
   unsupportedNumbers,
 } from '../src/index.js';
@@ -31,6 +33,14 @@ describe('AI guardrails', () => {
     expect(classifyProviderFailure(429, '')).toBe('AI_RATE_LIMITED');
     expect(classifyProviderFailure(400, 'content inspection failed')).toBe('AI_CONTENT_REJECTED');
     expect(classifyProviderFailure(503, '')).toBe('AI_PROVIDER_UNAVAILABLE');
+  });
+
+  it('encrypts model secrets without storing the plaintext', () => {
+    const sealed = encryptSecret('test-provider-secret', 'test-encryption-key-for-admin-config');
+    expect(sealed.ciphertext).not.toContain('test-provider-secret');
+    expect(decryptSecret(sealed, 'test-encryption-key-for-admin-config')).toBe(
+      'test-provider-secret',
+    );
   });
 
   it('detects conflicting source date ranges', () => {

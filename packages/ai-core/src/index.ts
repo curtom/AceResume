@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z, type ZodType } from 'zod';
 
 export type ModelContext = {
@@ -131,7 +131,13 @@ export class QwenProvider implements ChatModelProvider {
   readonly name = 'qwen' as const;
   constructor(
     readonly model: string,
-    private readonly options: { baseUrl: string; apiKey: string; timeoutMs: number },
+    private readonly options: {
+      baseUrl: string;
+      apiKey: string;
+      timeoutMs: number;
+      temperature?: number;
+      maxOutputTokens?: number;
+    },
   ) {}
 
   async generateStructured<T>(input: StructuredModelInput<T>): Promise<T> {
@@ -157,7 +163,8 @@ export class QwenProvider implements ChatModelProvider {
             },
           ],
           response_format: { type: 'json_object' },
-          temperature: 0.2,
+          temperature: this.options.temperature ?? 0.2,
+          ...(this.options.maxOutputTokens ? { max_tokens: this.options.maxOutputTokens } : {}),
         }),
         signal: controller.signal,
       });
@@ -249,4 +256,34 @@ export class QwenEmbeddingProvider implements EmbeddingProvider {
 
 export function createCitationId(): string {
   return randomUUID();
+}
+
+export type EncryptedSecret = { ciphertext: string; iv: string; tag: string };
+
+function encryptionKey(value: string): Buffer {
+  return createHash('sha256').update(value).digest();
+}
+
+export function encryptSecret(value: string, key: string): EncryptedSecret {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', encryptionKey(key), iv);
+  const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  return {
+    ciphertext: ciphertext.toString('base64url'),
+    iv: iv.toString('base64url'),
+    tag: cipher.getAuthTag().toString('base64url'),
+  };
+}
+
+export function decryptSecret(value: EncryptedSecret, key: string): string {
+  const decipher = createDecipheriv(
+    'aes-256-gcm',
+    encryptionKey(key),
+    Buffer.from(value.iv, 'base64url'),
+  );
+  decipher.setAuthTag(Buffer.from(value.tag, 'base64url'));
+  return Buffer.concat([
+    decipher.update(Buffer.from(value.ciphertext, 'base64url')),
+    decipher.final(),
+  ]).toString('utf8');
 }

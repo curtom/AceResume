@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import type { AiTaskEvent, CreateAiTaskRequest, ResumeSuggestion } from '@aceresume/contracts';
 import { DatabaseService } from '../infrastructure/database.service.js';
 import {
@@ -8,12 +9,30 @@ import {
   aiTaskEvents,
   aiTasks,
   documents,
+  modelConfigs,
   profileEntries,
+  promptVersions,
 } from '../infrastructure/schema.js';
 
 @Injectable()
 export class AiRepository {
   constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {}
+
+  async runtimeConfiguration(userId: string) {
+    const [model, activePrompts] = await Promise.all([
+      this.database.db.query.modelConfigs.findFirst({ where: eq(modelConfigs.id, 'primary') }),
+      this.database.db.query.promptVersions.findMany({
+        where: and(eq(promptVersions.key, 'resume-writing'), eq(promptVersions.status, 'active')),
+        orderBy: [desc(promptVersions.version)],
+      }),
+    ]);
+    const candidate = activePrompts[0];
+    const bucket =
+      Number.parseInt(createHash('sha256').update(userId).digest('hex').slice(0, 8), 16) % 100;
+    const prompt =
+      candidate && bucket >= candidate.rolloutPercent ? (activePrompts[1] ?? candidate) : candidate;
+    return { model, prompt };
+  }
 
   async sourcesBelongToUser(
     userId: string,

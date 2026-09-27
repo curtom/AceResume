@@ -13,7 +13,7 @@ import { QueueService } from '../jobs/queue.service.js';
 import { ResumesService } from '../resumes/resumes.service.js';
 import { AiRepository } from './ai.repository.js';
 
-const PROMPT_VERSION = 'resume-writing-v1';
+const DEFAULT_PROMPT_VERSION = 'resume-writing-v1';
 const SUPPORTED_SECTIONS = new Set([
   'education',
   'experience',
@@ -61,19 +61,39 @@ export class AiService {
         HttpStatus.FORBIDDEN,
         '所选来源不存在、尚未解析完成或不属于当前用户。',
       );
-    if (this.environment.AI_PROVIDER === 'qwen' && !this.environment.DASHSCOPE_API_KEY)
+    const runtime = await this.repository.runtimeConfiguration(userId);
+    const provider =
+      this.environment.AI_PROVIDER === 'mock'
+        ? 'mock'
+        : runtime.model?.provider === 'mock'
+          ? 'mock'
+          : 'qwen';
+    const hasConfiguredSecret = Boolean(
+      runtime.model?.secretCiphertext || this.environment.DASHSCOPE_API_KEY,
+    );
+    if (runtime.model && !runtime.model.isEnabled)
+      throw new AppException(
+        'AI_PROVIDER_UNAVAILABLE',
+        HttpStatus.SERVICE_UNAVAILABLE,
+        'AI Provider 当前已由管理员停用。',
+      );
+    if (provider === 'qwen' && !hasConfiguredSecret)
       throw new AppException(
         'AI_PROVIDER_UNAVAILABLE',
         HttpStatus.SERVICE_UNAVAILABLE,
         'Qwen Provider 尚未配置服务端密钥。',
       );
-    const provider = this.environment.AI_PROVIDER;
     const task = await this.repository.createTask({
       id: randomUUID(),
       userId,
       provider,
-      model: provider === 'mock' ? 'mock-resume-writer-v1' : this.environment.AI_CHAT_MODEL,
-      promptVersion: PROMPT_VERSION,
+      model:
+        provider === 'mock'
+          ? 'mock-resume-writer-v1'
+          : (runtime.model?.chatModel ?? this.environment.AI_CHAT_MODEL),
+      promptVersion: runtime.prompt
+        ? `${runtime.prompt.key}-v${runtime.prompt.version}`
+        : DEFAULT_PROMPT_VERSION,
       request: input,
     });
     if (!task) throw new Error('AI task insert failed.');
