@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { message } from 'ant-design-vue';
 import type { ResumeSummary } from '@aceresume/contracts';
 import { getApiErrorMessage } from '@/api/http';
 import AppSidebar from '@/components/AppSidebar.vue';
@@ -10,7 +11,6 @@ const router = useRouter();
 const recent = ref<ResumeSummary | null>(null);
 const total = ref(0);
 const isLoading = ref(true);
-const errorMessage = ref<string | null>(null);
 onMounted(async () => {
   try {
     const [active, archived] = await Promise.all([
@@ -20,7 +20,7 @@ onMounted(async () => {
     recent.value = active.items[0] ?? null;
     total.value = active.total + archived.total;
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   } finally {
     isLoading.value = false;
   }
@@ -36,15 +36,6 @@ onMounted(async () => {
         <b>{{ new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' }) }}</b>
       </header>
       <div class="dashboard-content">
-        <a-alert
-          v-if="errorMessage"
-          class="load-alert"
-          type="error"
-          show-icon
-          closable
-          :message="errorMessage"
-          @close="errorMessage = null"
-        />
         <section class="hero">
           <div class="hero-copy">
             <span class="eyebrow">START YOUR STORY</span>
@@ -146,9 +137,6 @@ onMounted(async () => {
 }
 .dashboard-content {
   padding: 2.3rem 4vw 5rem;
-}
-.load-alert {
-  margin-bottom: 1rem;
 }
 .hero {
   position: relative;

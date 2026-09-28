@@ -1,25 +1,23 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { message } from 'ant-design-vue';
 import {
   ForgotPasswordRequestSchema,
   LoginRequestSchema,
-  RegisterRequestSchema,
   ResetPasswordRequestSchema,
 } from '@aceresume/contracts';
 import * as authApi from '@/api/auth';
 import { getApiErrorMessage } from '@/api/http';
 import { useAuthStore } from '@/stores/auth';
 
-type AuthMode = 'login' | 'register' | 'forgot' | 'reset';
+type AuthMode = 'login' | 'forgot' | 'reset';
 const props = defineProps<{ mode: AuthMode }>();
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 const form = reactive({ email: '', password: '' });
 const isSubmitting = ref(false);
-const errorMessage = ref<string | null>(null);
-const successMessage = ref<string | null>(null);
 
 const copy = computed(
   () =>
@@ -27,14 +25,8 @@ const copy = computed(
       login: {
         kicker: 'WELCOME BACK',
         title: '继续打磨你的故事',
-        subtitle: '登录后进入个人资料库。',
-        action: '登录',
-      },
-      register: {
-        kicker: 'START HERE',
-        title: '先建立可信的资料底稿',
-        subtitle: '完成账户设置后即可管理你的经历。',
-        action: '创建账户',
+        subtitle: '登录或创建账号，进入个人资料库。',
+        action: '登录 / 创建账号',
       },
       forgot: {
         kicker: 'ACCOUNT RECOVERY',
@@ -54,17 +46,13 @@ const showsEmail = computed(() => props.mode !== 'reset');
 const showsPassword = computed(() => props.mode !== 'forgot');
 
 async function submit(): Promise<void> {
-  errorMessage.value = null;
-  successMessage.value = null;
   const token = typeof route.query.token === 'string' ? route.query.token : '';
   const schema =
-    props.mode === 'register'
-      ? RegisterRequestSchema
-      : props.mode === 'login'
-        ? LoginRequestSchema
-        : props.mode === 'forgot'
-          ? ForgotPasswordRequestSchema
-          : ResetPasswordRequestSchema;
+    props.mode === 'login'
+      ? LoginRequestSchema
+      : props.mode === 'forgot'
+        ? ForgotPasswordRequestSchema
+        : ResetPasswordRequestSchema;
   const payload =
     props.mode === 'reset'
       ? { token, password: form.password }
@@ -73,7 +61,7 @@ async function submit(): Promise<void> {
         : { email: form.email, password: form.password };
   const parsed = schema.safeParse(payload);
   if (!parsed.success) {
-    errorMessage.value = parsed.error.issues[0]?.message ?? '请检查输入内容。';
+    message.error(parsed.error.issues[0]?.message ?? '请检查输入内容。');
     return;
   }
   isSubmitting.value = true;
@@ -83,18 +71,13 @@ async function submit(): Promise<void> {
       await router.replace(
         typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard',
       );
-    } else if (props.mode === 'register') {
-      successMessage.value = await authApi.register({
-        email: form.email.trim().toLowerCase(),
-        password: form.password,
-      });
     } else if (props.mode === 'forgot') {
-      successMessage.value = await authApi.forgotPassword(form.email.trim().toLowerCase());
+      message.success(await authApi.forgotPassword(form.email.trim().toLowerCase()));
     } else {
-      successMessage.value = await authApi.resetPassword(token, form.password);
+      message.success(await authApi.resetPassword(token, form.password));
     }
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   } finally {
     isSubmitting.value = false;
   }
@@ -117,25 +100,23 @@ async function submit(): Promise<void> {
         <p class="kicker">{{ copy.kicker }}</p>
         <h1>{{ copy.title }}</h1>
         <p class="subtitle">{{ copy.subtitle }}</p>
-        <a-alert v-if="errorMessage" :message="errorMessage" type="error" show-icon />
-        <a-alert v-if="successMessage" :message="successMessage" type="success" show-icon />
         <form @submit.prevent="submit">
           <label v-if="showsEmail">
-            <span>邮箱</span>
+            <span class="form-label">邮箱</span>
             <a-input
               v-model:value="form.email"
               type="email"
               autocomplete="email"
-              placeholder="name@example.com"
+              placeholder="请输入邮箱账号"
               size="large"
             />
           </label>
           <label v-if="showsPassword">
-            <span>{{ mode === 'reset' ? '新密码' : '密码' }}</span>
+            <span class="form-label">{{ mode === 'reset' ? '新密码' : '密码' }}</span>
             <a-input-password
               v-model:value="form.password"
               :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
-              placeholder="10～72 位，包含字母和数字"
+              placeholder="请输入邮箱密码"
               size="large"
             />
           </label>
@@ -145,7 +126,6 @@ async function submit(): Promise<void> {
         </form>
         <nav class="auth-links" aria-label="账户操作">
           <RouterLink v-if="mode !== 'login'" to="/login">返回登录</RouterLink>
-          <RouterLink v-if="mode === 'login'" to="/register">创建账户</RouterLink>
           <RouterLink v-if="mode === 'login'" to="/forgot-password">忘记密码</RouterLink>
         </nav>
       </div>
@@ -260,7 +240,7 @@ form {
   gap: 1.25rem;
   margin-top: 1.2rem;
 }
-label > span {
+.form-label {
   display: block;
   margin-bottom: 0.55rem;
   color: #4d5667;

@@ -36,6 +36,7 @@ export class AuthRepository {
     id: string;
     email: string;
     passwordHash: string;
+    emailVerifiedAt?: Date;
     verificationToken: {
       id: string;
       hash: string;
@@ -45,7 +46,12 @@ export class AuthRepository {
     return this.database.db.transaction(async (transaction) => {
       const [user] = await transaction
         .insert(users)
-        .values({ id: input.id, email: input.email, passwordHash: input.passwordHash })
+        .values({
+          id: input.id,
+          email: input.email,
+          passwordHash: input.passwordHash,
+          emailVerifiedAt: input.emailVerifiedAt,
+        })
         .returning();
       if (!user) throw new Error('User insert failed.');
       await transaction.insert(profiles).values({ userId: user.id, email: user.email });

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { message } from 'ant-design-vue';
 import type {
   DocumentDetail,
   DocumentPurpose,
@@ -27,13 +28,10 @@ const limits = ref({
 });
 const isLoading = ref(true);
 const isUploading = ref(false);
-const errorMessage = ref<string | null>(null);
-const noticeMessage = ref<string | null>(null);
 const detail = ref<DocumentDetail | null>(null);
 const isDetailOpen = ref(false);
 const isConfirming = ref(false);
 const isReparsing = ref(false);
-const drawerMessage = ref<string | null>(null);
 const selectedIds = ref<string[]>([]);
 const editedValues = reactive<Record<string, string>>({});
 const resumes = ref<ResumeSummary[]>([]);
@@ -88,7 +86,7 @@ async function load(): Promise<void> {
     if (page.items.some((item) => ['queued', 'parsing', 'deleting'].includes(item.status)))
       pollTimer = globalThis.setTimeout(() => void load(), 1_500);
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   } finally {
     isLoading.value = false;
   }
@@ -108,12 +106,11 @@ async function upload(
   purpose: DocumentPurpose,
 ): Promise<void> {
   isUploading.value = true;
-  errorMessage.value = null;
   try {
     await documentApi.uploadDocument(file, purpose);
     await load();
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   } finally {
     isUploading.value = false;
   }
@@ -122,42 +119,39 @@ async function openDetail(item: DocumentSummary): Promise<void> {
   if (item.status !== 'ready' && item.status !== 'failed') return;
   try {
     detail.value = await documentApi.getDocument(item.id);
-    drawerMessage.value = null;
     selectedIds.value = detail.value.import?.candidates.map((candidate) => candidate.id) ?? [];
     for (const candidate of detail.value.import?.candidates ?? [])
       editedValues[candidate.id] = candidate.value;
     confirmForm.name = item.fileName.replace(/\.[^.]+$/, '');
     isDetailOpen.value = true;
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   }
 }
 async function reparse(): Promise<void> {
   if (!detail.value) return;
   isReparsing.value = true;
-  drawerMessage.value = null;
   try {
     await documentApi.reparseDocument(detail.value.id);
     isDetailOpen.value = false;
-    noticeMessage.value = '已开始重新识别，解析完成后请再次打开该材料确认候选字段。';
+    message.success('已开始重新识别，解析完成后请再次打开该材料确认候选字段。');
     await load();
   } catch (error: unknown) {
-    drawerMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   } finally {
     isReparsing.value = false;
   }
 }
 async function confirm(): Promise<void> {
   if (!detail.value?.import) {
-    drawerMessage.value = '当前没有可确认的识别结果，请先重新识别。';
+    message.warning('当前没有可确认的识别结果，请先重新识别。');
     return;
   }
   if (!selectedIds.value.length) {
-    drawerMessage.value = '请至少选择一项候选字段后再写入。';
+    message.warning('请至少选择一项候选字段后再写入。');
     return;
   }
   isConfirming.value = true;
-  drawerMessage.value = null;
   try {
     const existing =
       confirmForm.resumeMode === 'existing'
@@ -182,7 +176,7 @@ async function confirm(): Promise<void> {
     await load();
     if (result.resumeId) await router.push(`/resumes/${result.resumeId}/edit`);
   } catch (error: unknown) {
-    drawerMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   } finally {
     isConfirming.value = false;
   }
@@ -192,14 +186,14 @@ async function remove(item: DocumentSummary): Promise<void> {
     await documentApi.deleteDocument(item.id);
     await load();
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   }
 }
 async function download(item: DocumentSummary): Promise<void> {
   try {
     await documentApi.downloadDocument(item);
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   }
 }
 onMounted(async () => {
@@ -208,8 +202,7 @@ onMounted(async () => {
     resumeApi.listResumes('active').then((page) => (resumes.value = page.items)),
     listTemplates().then((result) => (templates.value = result)),
   ]);
-  if (route.query.import === '1')
-    noticeMessage.value = '请选择旧简历文件，解析完成后逐项确认候选字段。';
+  if (route.query.import === '1') message.info('请选择旧简历文件，解析完成后逐项确认候选字段。');
 });
 onBeforeUnmount(() => globalThis.clearTimeout(pollTimer));
 </script>
@@ -234,22 +227,6 @@ onBeforeUnmount(() => globalThis.clearTimeout(pollTimer));
         </div>
       </header>
       <section class="workspace">
-        <a-alert
-          v-if="errorMessage"
-          :message="errorMessage"
-          type="error"
-          show-icon
-          closable
-          @close="errorMessage = null"
-        />
-        <a-alert
-          v-if="noticeMessage"
-          :message="noticeMessage"
-          type="info"
-          show-icon
-          closable
-          @close="noticeMessage = null"
-        />
         <div class="usage">
           <div>
             <strong>{{ total }} / {{ limits.maxFiles }}</strong
@@ -305,14 +282,6 @@ onBeforeUnmount(() => globalThis.clearTimeout(pollTimer));
             :message="detail.errorMessage"
             type="error"
             show-icon
-          />
-          <a-alert
-            v-else-if="drawerMessage"
-            :message="drawerMessage"
-            type="warning"
-            show-icon
-            closable
-            @close="drawerMessage = null"
           />
           <template v-else>
             <section v-if="detail.import" class="candidate-panel">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
+import { message } from 'ant-design-vue';
 import {
   EducationContentSchema,
   ExperienceContentSchema,
@@ -54,8 +55,6 @@ const total = ref(0);
 const isLoading = ref(true);
 const isEntriesLoading = ref(false);
 const isSaving = ref(false);
-const errorMessage = ref<string | null>(null);
-const successMessage = ref<string | null>(null);
 const isModalOpen = ref(false);
 const entryForm = reactive<EntryForm>(blankEntry('education'));
 const tabs: { key: ProfileTab; label: string }[] = [
@@ -97,7 +96,6 @@ const lines = (value: string): string[] =>
 
 async function loadProfile(): Promise<void> {
   isLoading.value = true;
-  errorMessage.value = null;
   try {
     profile.value = await profileApi.getProfile();
     Object.assign(basic, {
@@ -110,7 +108,7 @@ async function loadProfile(): Promise<void> {
       summary: profile.value.summary ?? '',
     });
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   } finally {
     isLoading.value = false;
   }
@@ -118,20 +116,18 @@ async function loadProfile(): Promise<void> {
 
 async function selectTab(tab: ProfileTab): Promise<void> {
   activeTab.value = tab;
-  successMessage.value = null;
   if (tab !== 'basic') await loadEntries(tab, 1);
 }
 
 async function loadEntries(type: ProfileEntryType, targetPage: number): Promise<void> {
   isEntriesLoading.value = true;
-  errorMessage.value = null;
   try {
     const result = await profileApi.listEntries(type, targetPage);
     entries.value = result.items;
     total.value = result.total;
     page.value = result.page;
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   } finally {
     isEntriesLoading.value = false;
   }
@@ -139,8 +135,6 @@ async function loadEntries(type: ProfileEntryType, targetPage: number): Promise<
 
 async function saveBasic(): Promise<void> {
   if (!profile.value) return;
-  errorMessage.value = null;
-  successMessage.value = null;
   const parsed = UpdateProfileRequestSchema.safeParse({
     ...basic,
     fullName: nullable(basic.fullName),
@@ -153,15 +147,15 @@ async function saveBasic(): Promise<void> {
     baseVersion: profile.value.version,
   });
   if (!parsed.success) {
-    errorMessage.value = parsed.error.issues[0]?.message ?? '请检查基本信息。';
+    message.error(parsed.error.issues[0]?.message ?? '请检查基本信息。');
     return;
   }
   isSaving.value = true;
   try {
     profile.value = await profileApi.updateProfile(parsed.data);
-    successMessage.value = '基本信息已保存。';
+    message.success('基本信息已保存。');
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   } finally {
     isSaving.value = false;
   }
@@ -281,7 +275,6 @@ function buildEntryRequest(): CreateProfileEntryRequest {
 }
 
 async function saveEntry(): Promise<void> {
-  errorMessage.value = null;
   isSaving.value = true;
   try {
     const request = buildEntryRequest();
@@ -292,10 +285,10 @@ async function saveEntry(): Promise<void> {
       });
     else await profileApi.createEntry(request);
     isModalOpen.value = false;
-    successMessage.value = entryForm.id ? '资料条目已更新。' : '资料条目已添加。';
+    message.success(entryForm.id ? '资料条目已更新。' : '资料条目已添加。');
     await loadEntries(entryForm.type, page.value);
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   } finally {
     isSaving.value = false;
   }
@@ -304,10 +297,10 @@ async function saveEntry(): Promise<void> {
 async function deleteEntry(entry: ProfileEntry): Promise<void> {
   try {
     await profileApi.deleteEntry(entry.id);
-    successMessage.value = '资料条目已删除。';
+    message.success('资料条目已删除。');
     await loadEntries(entry.type, 1);
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   }
 }
 
@@ -325,7 +318,7 @@ async function moveEntry(index: number, direction: -1 | 1): Promise<void> {
       versions: Object.fromEntries(reordered.map((entry) => [entry.id, entry.version])),
     });
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
     await loadEntries(activeTab.value, page.value);
   }
 }
@@ -360,22 +353,6 @@ onMounted(() => void loadProfile());
         </button>
       </nav>
       <div class="content-area">
-        <a-alert
-          v-if="errorMessage"
-          :message="errorMessage"
-          type="error"
-          show-icon
-          closable
-          @close="errorMessage = null"
-        />
-        <a-alert
-          v-if="successMessage"
-          :message="successMessage"
-          type="success"
-          show-icon
-          closable
-          @close="successMessage = null"
-        />
         <a-skeleton v-if="isLoading" active :paragraph="{ rows: 8 }" />
         <form v-else-if="activeTab === 'basic'" class="basic-card" @submit.prevent="saveBasic">
           <div class="section-heading">

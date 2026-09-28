@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { message } from 'ant-design-vue';
 import type {
   ProfileEntry,
   ProfileEntryType,
@@ -22,7 +23,6 @@ const total = ref(0);
 const overallTotal = ref(0);
 const isLoading = ref(true);
 const isCreating = ref(false);
-const errorMessage = ref<string | null>(null);
 const isCreateOpen = ref(false);
 const isRenameOpen = ref(false);
 const editingResume = ref<ResumeSummary | null>(null);
@@ -48,7 +48,6 @@ const entryLabel = (entry: ProfileEntry): string => {
 };
 async function load(): Promise<void> {
   isLoading.value = true;
-  errorMessage.value = null;
   try {
     const [result, other] = await Promise.all([
       resumeApi.listResumes(status.value),
@@ -58,7 +57,7 @@ async function load(): Promise<void> {
     total.value = result.total;
     overallTotal.value = result.total + other.total;
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   } finally {
     isLoading.value = false;
   }
@@ -81,7 +80,7 @@ async function openCreate(mode: 'blank' | 'profile'): Promise<void> {
       profileEntries.value = pages.flatMap((page) => page.items);
       selectedProfileIds.value = profileEntries.value.map((entry) => entry.id);
     } catch (error: unknown) {
-      errorMessage.value = getApiErrorMessage(error);
+      message.error(getApiErrorMessage(error));
     }
   }
 }
@@ -103,7 +102,7 @@ async function createResume(): Promise<void> {
     isCreateOpen.value = false;
     await router.push('/resumes/' + detail.id + '/edit');
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   } finally {
     isCreating.value = false;
   }
@@ -113,7 +112,7 @@ async function duplicate(item: ResumeSummary): Promise<void> {
     const result = await resumeApi.duplicateResume(item.id);
     await router.push('/resumes/' + result.id + '/edit');
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   }
 }
 async function toggleArchive(item: ResumeSummary): Promise<void> {
@@ -121,7 +120,7 @@ async function toggleArchive(item: ResumeSummary): Promise<void> {
     await resumeApi.setResumeArchived(item.id, item.version, item.status === 'active');
     await load();
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   }
 }
 async function remove(item: ResumeSummary): Promise<void> {
@@ -129,7 +128,7 @@ async function remove(item: ResumeSummary): Promise<void> {
     await resumeApi.deleteResume(item.id);
     await load();
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   }
 }
 function openRename(item: ResumeSummary): void {
@@ -148,7 +147,7 @@ async function rename(): Promise<void> {
     isRenameOpen.value = false;
     await load();
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   }
 }
 onMounted(async () => {
@@ -159,7 +158,7 @@ onMounted(async () => {
         templates.value = items;
       })
       .catch((error: unknown) => {
-        errorMessage.value = getApiErrorMessage(error);
+        message.error(getApiErrorMessage(error));
       }),
   ]);
   if (route.query.create === '1' && overallTotal.value < 6) await openCreate('blank');
@@ -181,14 +180,6 @@ onMounted(async () => {
         </div>
       </header>
       <section class="workspace">
-        <a-alert
-          v-if="errorMessage"
-          :message="errorMessage"
-          type="error"
-          show-icon
-          closable
-          @close="errorMessage = null"
-        />
         <div class="toolbar">
           <div class="tabs">
             <button :class="{ active: status === 'active' }" @click="changeStatus('active')">

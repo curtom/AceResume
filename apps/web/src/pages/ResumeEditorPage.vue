@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { message } from 'ant-design-vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import { ResumeThemeSchema, type ResumeTheme } from '@aceresume/resume-schema';
@@ -62,6 +63,16 @@ const exportError = ref<string | null>(null);
 const draggedIndex = ref<number | null>(null);
 let exportPollTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 let aiPollTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
+watch(aiError, (value) => {
+  if (!value) return;
+  message.error(value);
+  aiError.value = null;
+});
+watch(exportError, (value) => {
+  if (!value) return;
+  message.error(value);
+  exportError.value = null;
+});
 const profileTypeLabel: Record<ProfileEntryType, string> = {
   education: '教育经历',
   project: '项目经历',
@@ -451,14 +462,6 @@ onBeforeUnmount(() => {
         </div>
       </template>
       <div class="ai-flow">
-        <a-alert
-          v-if="aiError"
-          type="error"
-          show-icon
-          :message="aiError"
-          closable
-          @close="aiError = null"
-        />
         <a-skeleton v-if="isLoadingAiSources" active :paragraph="{ rows: 8 }" />
         <template v-else>
           <section class="ai-context">
@@ -713,7 +716,6 @@ onBeforeUnmount(() => {
           <li>无效链接：{{ diagnostics.invalidLinkCount ? '存在' : '无' }}</li>
           <li>授权字体：{{ diagnostics.fontReady ? '已加载' : '未加载' }}</li>
         </ul>
-        <a-alert v-if="exportError" type="error" show-icon :message="exportError" />
         <div v-if="exportJob" class="export-state">
           <strong>{{
             exportJob.status === 'completed' ? 'PDF 已生成并开始下载' : '正在后台生成 PDF…'

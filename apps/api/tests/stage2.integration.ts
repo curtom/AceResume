@@ -81,6 +81,7 @@ async function main(): Promise<void> {
   const app = await NestFactory.create(StageTwoTestModule, { logger: false });
   const suffix = randomUUID();
   const emails = [`stage2-a-${suffix}@example.test`, `stage2-b-${suffix}@example.test`];
+  const autoCreatedEmail = `stage2-auto-${suffix}@example.test`;
   const password = 'AceResume2026';
   const newPassword = 'AceResume2027';
   try {
@@ -92,6 +93,16 @@ async function main(): Promise<void> {
     const baseUrl = await app.getUrl();
     const unauthenticatedProfile = await api(baseUrl, '/profile');
     assert.equal(unauthenticatedProfile.response.status, 401);
+    const autoCreatedLogin = await api(baseUrl, '/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: autoCreatedEmail, password }),
+    });
+    assert.equal(autoCreatedLogin.response.status, 200);
+    assert.equal(
+      data<{ user: { isEmailVerified: boolean } }>(autoCreatedLogin.body).user.isEmailVerified,
+      true,
+    );
+    assert.ok(cookie(autoCreatedLogin.response));
     for (const email of emails) {
       const registration = await api(baseUrl, '/auth/register', {
         method: 'POST',
@@ -331,7 +342,7 @@ async function main(): Promise<void> {
     );
   } finally {
     const database = app.get(DatabaseService);
-    await database.db.delete(users).where(inArray(users.email, emails));
+    await database.db.delete(users).where(inArray(users.email, [...emails, autoCreatedEmail]));
     await app.close();
   }
 }

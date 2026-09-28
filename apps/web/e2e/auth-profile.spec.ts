@@ -1,20 +1,15 @@
 import { expect, test } from '@playwright/test';
 
-test('registers, signs in and maintains profile data in local development', async ({ page }) => {
+test('creates an account on first login and maintains profile data', async ({ page }) => {
   await page.setExtraHTTPHeaders({
     'x-forwarded-for': '2001:db8:' + Date.now().toString(16).slice(-4) + '::2',
   });
   const email = `stage2-e2e-${Date.now()}@example.test`;
   const password = 'AceResume2026';
-  await page.goto('/register');
+  await page.goto('/login');
   await page.getByLabel('邮箱').fill(email);
   await page.getByLabel('密码').fill(password);
-  await page.getByRole('button', { name: '创建账户' }).click();
-  await expect(page.getByText('注册成功，现在可以登录。')).toBeVisible();
-  await page.getByRole('link', { name: '返回登录' }).click();
-  await page.getByLabel('邮箱').fill(email);
-  await page.getByLabel('密码').fill(password);
-  await page.getByRole('button', { name: '登录' }).click();
+  await page.getByRole('button', { name: '登录 / 创建账号' }).click();
   await expect(page.getByRole('heading', { name: /下一份机会/ })).toBeVisible();
   await page
     .getByRole('complementary', { name: '主导航' })

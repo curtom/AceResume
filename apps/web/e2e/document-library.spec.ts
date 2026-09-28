@@ -3,14 +3,10 @@ import { expect, test } from '@playwright/test';
 test('uploads, parses, previews and confirms an old resume', async ({ page }) => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   await page.setExtraHTTPHeaders({ 'x-forwarded-for': `2001:db8:${suffix.slice(-4)}::5` });
-  await page.goto('/register');
+  await page.goto('/login');
   await page.getByLabel('邮箱').fill(`stage5-e2e-${suffix}@example.test`);
   await page.getByLabel('密码').fill('Stage5Secure123');
-  await page.getByRole('button', { name: '创建账户' }).click();
-  await page.getByRole('link', { name: '返回登录' }).click();
-  await page.getByLabel('邮箱').fill(`stage5-e2e-${suffix}@example.test`);
-  await page.getByLabel('密码').fill('Stage5Secure123');
-  await page.getByRole('button', { name: '登录' }).click();
+  await page.getByRole('button', { name: '登录 / 创建账号' }).click();
   await page.getByRole('link', { name: /材料库/ }).click();
   await expect(page.getByRole('heading', { name: '材料库' })).toBeVisible();
 

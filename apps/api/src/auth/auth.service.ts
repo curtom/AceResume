@@ -90,7 +90,21 @@ export class AuthService {
     input: LoginRequest,
     deviceInfo: string | null,
   ): Promise<AuthSession & { refreshToken: string }> {
-    const user = await this.repository.findUserByEmail(input.email);
+    let user = await this.repository.findUserByEmail(input.email);
+    if (!user) {
+      try {
+        user = await this.repository.createUser({
+          id: randomUUID(),
+          email: input.email,
+          passwordHash: await hash(input.password, ARGON2_OPTIONS),
+          emailVerifiedAt: new Date(),
+          verificationToken: null,
+        });
+      } catch (error: unknown) {
+        if ((error as { code?: string }).code !== '23505') throw error;
+        user = await this.repository.findUserByEmail(input.email);
+      }
+    }
     const isPasswordValid = user
       ? await verify(user.passwordHash, input.password)
       : await this.consumeDummyHash(input.password);

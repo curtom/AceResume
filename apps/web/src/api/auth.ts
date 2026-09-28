@@ -4,7 +4,6 @@ import {
   UserSummarySchema,
   type AuthSession,
   type LoginRequest,
-  type RegisterRequest,
   type UserSummary,
 } from '@aceresume/contracts';
 import { http } from './http';
@@ -13,9 +12,6 @@ function readMessage(value: unknown): string {
   if (!value || typeof value !== 'object' || !('data' in value))
     throw new Error('Invalid API response.');
   return MessageDataSchema.parse(value.data).message;
-}
-export async function register(input: RegisterRequest): Promise<string> {
-  return readMessage((await http.post('/auth/register', input)).data);
 }
 export async function verifyEmail(token: string): Promise<string> {
   return readMessage((await http.post('/auth/verify-email', { token })).data);

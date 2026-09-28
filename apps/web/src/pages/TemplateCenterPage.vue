@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import { message } from 'ant-design-vue';
 import type { TemplateSummary } from '@aceresume/contracts';
 import { getApiErrorMessage } from '@/api/http';
 import { listTemplates } from '@/api/template';
@@ -9,7 +10,6 @@ import TemplatePreviewCard from '@/components/TemplatePreviewCard.vue';
 const templates = ref<TemplateSummary[]>([]);
 const selected = ref<TemplateSummary | null>(null);
 const isLoading = ref(true);
-const errorMessage = ref<string | null>(null);
 const categoryLabel = {
   general: '通用',
   technology: '技术岗',
@@ -21,7 +21,7 @@ onMounted(async () => {
   try {
     templates.value = await listTemplates();
   } catch (error: unknown) {
-    errorMessage.value = getApiErrorMessage(error);
+    message.error(getApiErrorMessage(error));
   } finally {
     isLoading.value = false;
   }
@@ -41,7 +41,6 @@ onMounted(async () => {
         <b>8</b>
       </header>
       <section class="template-content">
-        <a-alert v-if="errorMessage" type="error" show-icon :message="errorMessage" />
         <a-skeleton v-if="isLoading" active :paragraph="{ rows: 12 }" />
         <div v-else class="template-grid">
           <article v-for="(item, index) in templates" :key="item.versionId">

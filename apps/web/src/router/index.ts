@@ -15,10 +15,7 @@ export const router = createRouter({
     },
     {
       path: '/register',
-      name: 'register',
-      component: () => import('@/pages/AuthPage.vue'),
-      props: { mode: 'register' },
-      meta: { public: true },
+      redirect: '/login',
     },
     {
       path: '/forgot-password',
@@ -63,7 +60,6 @@ router.beforeEach(async (to) => {
   await auth.initialize();
   if (!to.meta.public && !auth.user) return { name: 'login', query: { redirect: to.fullPath } };
   if (to.meta.requiresAdmin && auth.user?.role !== 'admin') return '/dashboard';
-  if (to.meta.public && auth.user && ['login', 'register'].includes(String(to.name)))
-    return '/dashboard';
+  if (to.meta.public && auth.user && to.name === 'login') return '/dashboard';
   return true;
 });

@@ -5,14 +5,10 @@ test('generates a cited suggestion and writes it only after user approval', asyn
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const email = `stage6-e2e-${suffix}@example.test`;
   await page.setExtraHTTPHeaders({ 'x-forwarded-for': `2001:db8:${suffix.slice(-4)}::6` });
-  await page.goto('/register');
+  await page.goto('/login');
   await page.getByLabel('邮箱').fill(email);
   await page.getByLabel('密码').fill('Stage6Secure123');
-  await page.getByRole('button', { name: '创建账户' }).click();
-  await page.getByRole('link', { name: '返回登录' }).click();
-  await page.getByLabel('邮箱').fill(email);
-  await page.getByLabel('密码').fill('Stage6Secure123');
-  await page.getByRole('button', { name: '登录' }).click();
+  await page.getByRole('button', { name: '登录 / 创建账号' }).click();
 
   await page.getByRole('link', { name: /材料库/ }).click();
   const chooserPromise = page.waitForEvent('filechooser');

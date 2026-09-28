@@ -7,14 +7,10 @@ test('selects a template, previews it and downloads an asynchronous PDF', async 
     'x-forwarded-for': `2001:db8:${Date.now().toString(16).slice(-4)}::4`,
   });
   const email = `stage4-e2e-${Date.now()}@example.test`;
-  await page.goto('/register');
+  await page.goto('/login');
   await page.getByLabel('邮箱').fill(email);
   await page.getByLabel('密码').fill('AceResume2026');
-  await page.getByRole('button', { name: '创建账户' }).click();
-  await page.getByRole('link', { name: '返回登录' }).click();
-  await page.getByLabel('邮箱').fill(email);
-  await page.getByLabel('密码').fill('AceResume2026');
-  await page.getByRole('button', { name: '登录' }).click();
+  await page.getByRole('button', { name: '登录 / 创建账号' }).click();
 
   await page
     .getByRole('complementary', { name: '主导航' })

@@ -11,11 +11,11 @@ test('admin enters the independent control room and sees privacy-safe operations
   const email = `stage7-e2e-${suffix}@example.test`;
   const password = 'Stage7Secure123';
   await page.setExtraHTTPHeaders({ 'x-forwarded-for': `2001:db8:${suffix.slice(-4)}::7` });
-  await page.goto('/register');
+  await page.goto('/login');
   await page.getByLabel('邮箱').fill(email);
   await page.getByLabel('密码').fill(password);
-  await page.getByRole('button', { name: '创建账户' }).click();
-  await expect(page.getByText(/注册成功/)).toBeVisible();
+  await page.getByRole('button', { name: '登录 / 创建账号' }).click();
+  await expect(page.getByRole('heading', { name: /下一份机会/ })).toBeVisible();
 
   loadEnvFile(resolve(process.cwd(), '../../.env'));
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required for admin E2E setup.');
@@ -29,11 +29,7 @@ test('admin enters the independent control room and sees privacy-safe operations
     await database.end({ timeout: 3 });
   }
 
-  await page.getByRole('link', { name: '返回登录' }).click();
-  await page.getByLabel('邮箱').fill(email);
-  await page.getByLabel('密码').fill(password);
-  await page.getByRole('button', { name: '登录' }).click();
-  await expect(page.getByRole('heading', { name: /下一份机会/ })).toBeVisible();
+  await page.reload();
   await page.goto('/admin');
   await expect(page.getByRole('heading', { name: '运行总览' })).toBeVisible();
   await expect(page.getByText('所有敏感操作均审计')).toBeVisible();
