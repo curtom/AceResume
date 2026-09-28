@@ -337,6 +337,36 @@ async function main(): Promise<void> {
       headers: { authorization: `Bearer ${reloginSession.accessToken}` },
     });
     assert.equal(afterLogout.response.status, 401);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const failed = await api(baseUrl, '/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: autoCreatedEmail, password: 'WrongPassword2026' }),
+      });
+      assert.equal(failed.response.status, 401);
+    }
+    const clearsFailures = await api(baseUrl, '/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: autoCreatedEmail, password }),
+    });
+    assert.equal(clearsFailures.response.status, 200);
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const failed = await api(baseUrl, '/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: autoCreatedEmail, password: 'WrongPassword2026' }),
+      });
+      assert.equal(failed.response.status, 401);
+    }
+    const rateLimited = await api(baseUrl, '/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: autoCreatedEmail, password: 'WrongPassword2026' }),
+    });
+    assert.equal(rateLimited.response.status, 429);
+    assert.ok(
+      Number(
+        (rateLimited.body as { details?: { retryAfterSeconds?: number } }).details
+          ?.retryAfterSeconds,
+      ) > 0,
+    );
     process.stdout.write(
       'Stage 2 auth, session, profile CRUD, ownership and concurrency integration passed.\n',
     );

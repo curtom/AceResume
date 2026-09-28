@@ -98,11 +98,13 @@ export class AuthController {
     @Req() request: HttpRequest,
     @Res({ passthrough: true }) response: HttpResponse,
   ) {
-    await this.rateLimit.consume('login', request.ip ?? 'unknown', 10, 15 * 60);
+    const rateLimitIdentity = `${input.email}:${request.ip ?? 'unknown'}`;
+    await this.rateLimit.consume('login', rateLimitIdentity, 5, 60);
     const { refreshToken, ...session } = await this.authService.login(
       input,
       request.headers['user-agent']?.slice(0, 500) ?? null,
     );
+    await this.rateLimit.reset('login', rateLimitIdentity);
     this.setRefreshCookie(response, refreshToken);
     return session;
   }
