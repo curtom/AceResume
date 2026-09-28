@@ -44,7 +44,7 @@ const entryLabel = (entry: ProfileEntry): string => {
   if (entry.type === 'experience')
     return entry.content.organization + ' · ' + entry.content.position;
   if (entry.type === 'project') return entry.content.name;
-  return entry.content.category + ' · ' + entry.content.name;
+  return entry.content.description?.split('\n')[0] || '专业技能';
 };
 async function load(): Promise<void> {
   isLoading.value = true;

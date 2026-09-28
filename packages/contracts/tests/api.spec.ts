@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   ApiErrorSchema,
   EducationContentSchema,
+  ExperienceContentSchema,
   HealthDataSchema,
   PasswordSchema,
+  ProjectContentSchema,
+  SkillContentSchema,
   UpdateProfileRequestSchema,
   createApiSuccessSchema,
 } from '../src/index.js';
@@ -70,6 +73,53 @@ describe('API contracts', () => {
         ranking: null,
         description: null,
         privateNote: 'not allowed',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('limits profile descriptions to 1000 characters', () => {
+    const description = '项'.repeat(1_000);
+    const dates = { startDate: '2025-01', endDate: null, isCurrent: true };
+    expect(
+      ProjectContentSchema.safeParse({
+        schemaVersion: 1,
+        name: '项目',
+        role: null,
+        ...dates,
+        background: null,
+        responsibilities: [description],
+        technologies: [],
+        outcomes: [],
+        url: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      ExperienceContentSchema.safeParse({
+        schemaVersion: 1,
+        organization: '公司',
+        position: '职位',
+        ...dates,
+        responsibilities: [description],
+        outcomes: [],
+        skills: [],
+      }).success,
+    ).toBe(true);
+    expect(
+      SkillContentSchema.safeParse({
+        schemaVersion: 1,
+        category: '专业技能',
+        name: '专业技能',
+        proficiency: null,
+        description,
+      }).success,
+    ).toBe(true);
+    expect(
+      SkillContentSchema.safeParse({
+        schemaVersion: 1,
+        category: '专业技能',
+        name: '专业技能',
+        proficiency: null,
+        description: description + '超',
       }).success,
     ).toBe(false);
   });

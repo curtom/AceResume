@@ -26,8 +26,40 @@ test('creates an account on first login and maintains profile data', async ({ pa
   await dialog.getByLabel('学校').fill('示例大学');
   await dialog.getByLabel('专业').fill('计算机科学');
   await dialog.getByLabel('学历').fill('本科');
-  await dialog.getByLabel('开始时间').fill('2022-09');
-  await dialog.getByLabel('结束时间').fill('2026-06');
+  const educationStart = dialog.getByPlaceholder('选择开始月份');
+  await expect(educationStart).toHaveAttribute('readonly', '');
+  await educationStart.click();
+  await expect(page.locator('.ant-picker-header-view')).toContainText(/\d{4}年/);
+  const january = page.locator('.ant-picker-month-panel .ant-picker-cell-inner').first();
+  await expect(january).toHaveText('1月');
+  await january.click();
+  await expect(educationStart).toHaveValue(/\d{4}年01月/);
+  await dialog.getByRole('button', { name: /取\s*消/ }).click();
+
+  await page.getByRole('button', { name: '项目经历', exact: true }).click();
+  await page.getByRole('button', { name: /添加项目经历/ }).click();
+  await expect(dialog.getByLabel('项目名称')).toBeVisible();
+  await expect(dialog.getByLabel('担任角色')).toBeVisible();
+  await expect(dialog.getByPlaceholder('选择开始月份')).toBeVisible();
+  await expect(dialog.getByPlaceholder('选择结束月份')).toBeDisabled();
+  await expect(dialog.getByText('至今', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('textbox', { name: /内容描述 0 \/ 1000/ })).toBeVisible();
+  await expect(dialog.getByText(/项目背景|职责|技术栈|成果|项目链接/)).toHaveCount(0);
+  await dialog.getByRole('button', { name: /取\s*消/ }).click();
+
+  await page.getByRole('button', { name: '实习 / 工作经历', exact: true }).click();
+  await page.getByRole('button', { name: /添加实习或工作/ }).click();
+  await expect(dialog.getByLabel('组织 / 公司')).toBeVisible();
+  await expect(dialog.getByLabel('职位')).toBeVisible();
+  await expect(dialog.getByRole('textbox', { name: /内容描述 0 \/ 1000/ })).toBeVisible();
+  await expect(dialog.getByText(/职责|成果|相关技能/)).toHaveCount(0);
+  await dialog.getByRole('button', { name: /取\s*消/ }).click();
+
+  await page.getByRole('button', { name: '专业技能', exact: true }).click();
+  await page.getByRole('button', { name: /添加专业技能/ }).click();
+  await expect(dialog.getByRole('textbox', { name: /内容描述 0 \/ 1000/ })).toBeVisible();
+  await expect(dialog.getByText(/技能名称|分类|熟练度/)).toHaveCount(0);
+  await dialog.getByLabel('内容描述').fill('Vue 3 与 TypeScript 工程化实践');
   await dialog.getByRole('button', { name: /保\s*存/ }).click();
-  await expect(page.getByRole('heading', { name: '示例大学' })).toBeVisible();
+  await expect(page.getByText('Vue 3 与 TypeScript 工程化实践')).toBeVisible();
 });

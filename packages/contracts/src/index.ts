@@ -118,8 +118,8 @@ const optionalUrl = z
   .transform((value) => value || null);
 const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, '日期格式必须为 YYYY-MM');
 const optionalMonth = z.union([month, z.null()]);
-const textList = (maximumItems = 20) =>
-  z.array(z.string().trim().min(1).max(500)).max(maximumItems);
+const textList = (maximumItems = 20, maximumLength = 500) =>
+  z.array(z.string().trim().min(1).max(maximumLength)).max(maximumItems);
 
 export const ProfileSchema = z.object({
   id: z.string().uuid(),
@@ -169,7 +169,7 @@ export const ProjectContentSchema = z
     endDate: optionalMonth,
     isCurrent: z.boolean(),
     background: nullableText(1_000),
-    responsibilities: textList(),
+    responsibilities: textList(20, 1_000),
     technologies: textList(30),
     outcomes: textList(),
     url: optionalUrl,
@@ -183,7 +183,7 @@ export const ExperienceContentSchema = z
     startDate: month,
     endDate: optionalMonth,
     isCurrent: z.boolean(),
-    responsibilities: textList(),
+    responsibilities: textList(20, 1_000),
     outcomes: textList(),
     skills: textList(30),
   })
@@ -194,7 +194,7 @@ export const SkillContentSchema = z
     category: z.string().trim().min(1).max(80),
     name: z.string().trim().min(1).max(100),
     proficiency: nullableText(40),
-    description: nullableText(500),
+    description: nullableText(1_000),
   })
   .strict();
 

@@ -14,23 +14,28 @@ const emit = defineEmits<{
 }>();
 const labels: Record<ProfileEntryType, { title: string; hint: string; add: string }> = {
   education: { title: '教育经历', hint: '学校、专业、学历与绩点信息', add: '添加教育经历' },
-  project: { title: '项目经历', hint: '记录你真正参与过的项目和成果', add: '添加项目经历' },
-  experience: { title: '实习 / 工作', hint: '组织、职位、职责与可验证成果', add: '添加实习或工作' },
-  skill: { title: '技能清单', hint: '按分类维护可复用的技能条目', add: '添加技能' },
+  project: { title: '项目经历', hint: '记录项目、角色、时间与内容描述', add: '添加项目经历' },
+  experience: {
+    title: '实习 / 工作经历',
+    hint: '记录组织、职位、时间与内容描述',
+    add: '添加实习或工作',
+  },
+  skill: { title: '专业技能', hint: '维护可复用的专业技能描述', add: '添加专业技能' },
 };
 function title(entry: ProfileEntry): string {
   const content = entry.content;
   if ('school' in content) return content.school;
   if ('organization' in content) return content.organization;
-  if ('category' in content) return `${content.category} · ${content.name}`;
+  if ('category' in content) return '专业技能';
   return content.name;
 }
 function subtitle(entry: ProfileEntry): string {
   const content = entry.content;
   if ('major' in content) return `${content.degree} · ${content.major}`;
   if ('position' in content) return content.position;
-  if ('technologies' in content) return content.technologies.join(' / ') || '尚未填写技术栈';
-  return content.proficiency || content.description || '未填写补充说明';
+  if ('technologies' in content)
+    return content.role || content.background || content.responsibilities[0] || '未填写内容描述';
+  return content.description || '未填写内容描述';
 }
 </script>
 

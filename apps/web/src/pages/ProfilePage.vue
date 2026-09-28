@@ -31,12 +31,6 @@ type EntryForm = {
   grade: string;
   ranking: string;
   description: string;
-  background: string;
-  responsibilities: string;
-  technologies: string;
-  outcomes: string;
-  url: string;
-  proficiency: string;
 };
 const profile = ref<Profile | null>(null);
 const basic = reactive({
@@ -61,8 +55,8 @@ const tabs: { key: ProfileTab; label: string }[] = [
   { key: 'basic', label: '基本信息' },
   { key: 'education', label: '教育经历' },
   { key: 'project', label: '项目经历' },
-  { key: 'experience', label: '实习 / 工作' },
-  { key: 'skill', label: '技能' },
+  { key: 'experience', label: '实习 / 工作经历' },
+  { key: 'skill', label: '专业技能' },
 ];
 
 function blankEntry(type: ProfileEntryType): EntryForm {
@@ -75,24 +69,13 @@ function blankEntry(type: ProfileEntryType): EntryForm {
     degree: '',
     startDate: '',
     endDate: '',
-    isCurrent: false,
+    isCurrent: type === 'project' || type === 'experience',
     grade: '',
     ranking: '',
     description: '',
-    background: '',
-    responsibilities: '',
-    technologies: '',
-    outcomes: '',
-    url: '',
-    proficiency: '',
   };
 }
 const nullable = (value: string): string | null => value.trim() || null;
-const lines = (value: string): string[] =>
-  value
-    .split('\n')
-    .map((item) => item.trim())
-    .filter(Boolean);
 
 async function loadProfile(): Promise<void> {
   isLoading.value = true;
@@ -187,16 +170,23 @@ function openEdit(entry: ProfileEntry): void {
       startDate: content.startDate,
       endDate: content.endDate ?? '',
       isCurrent: content.isCurrent,
-      responsibilities: content.responsibilities.join('\n'),
-      outcomes: content.outcomes.join('\n'),
-      technologies: content.skills.join('\n'),
+      description: [
+        ...content.responsibilities,
+        ...content.outcomes,
+        content.skills.length ? `相关技能：${content.skills.join('、')}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
     });
   else if ('category' in content)
     Object.assign(entryForm, {
-      primary: content.name,
-      secondary: content.category,
-      proficiency: content.proficiency ?? '',
-      description: content.description ?? '',
+      description: [
+        content.name === '专业技能' ? '' : `${content.category} · ${content.name}`,
+        content.proficiency ? `熟练度：${content.proficiency}` : '',
+        content.description,
+      ]
+        .filter(Boolean)
+        .join('\n'),
     });
   else
     Object.assign(entryForm, {
@@ -205,11 +195,15 @@ function openEdit(entry: ProfileEntry): void {
       startDate: content.startDate,
       endDate: content.endDate ?? '',
       isCurrent: content.isCurrent,
-      background: content.background ?? '',
-      responsibilities: content.responsibilities.join('\n'),
-      technologies: content.technologies.join('\n'),
-      outcomes: content.outcomes.join('\n'),
-      url: content.url ?? '',
+      description: [
+        content.background,
+        ...content.responsibilities,
+        ...content.outcomes,
+        content.url ? `项目链接：${content.url}` : '',
+        content.technologies.length ? `技术栈：${content.technologies.join('、')}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
     });
   isModalOpen.value = true;
 }
@@ -242,11 +236,11 @@ function buildEntryRequest(): CreateProfileEntryRequest {
         name: entryForm.primary,
         role: nullable(entryForm.secondary),
         ...dates,
-        background: nullable(entryForm.background),
-        responsibilities: lines(entryForm.responsibilities),
-        technologies: lines(entryForm.technologies),
-        outcomes: lines(entryForm.outcomes),
-        url: nullable(entryForm.url),
+        background: null,
+        responsibilities: nullable(entryForm.description) ? [entryForm.description.trim()] : [],
+        technologies: [],
+        outcomes: [],
+        url: null,
       }),
     };
   if (entryForm.type === 'experience')
@@ -257,18 +251,18 @@ function buildEntryRequest(): CreateProfileEntryRequest {
         organization: entryForm.primary,
         position: entryForm.secondary,
         ...dates,
-        responsibilities: lines(entryForm.responsibilities),
-        outcomes: lines(entryForm.outcomes),
-        skills: lines(entryForm.technologies),
+        responsibilities: nullable(entryForm.description) ? [entryForm.description.trim()] : [],
+        outcomes: [],
+        skills: [],
       }),
     };
   return {
     type: 'skill',
     content: SkillContentSchema.parse({
       schemaVersion: 1,
-      category: entryForm.secondary,
-      name: entryForm.primary,
-      proficiency: nullable(entryForm.proficiency),
+      category: '专业技能',
+      name: '专业技能',
+      proficiency: null,
       description: nullable(entryForm.description),
     }),
   };
@@ -415,27 +409,23 @@ onMounted(() => void loadProfile());
       @ok="saveEntry"
     >
       <div class="entry-form">
-        <label
+        <label v-if="entryForm.type !== 'skill'"
           ><span>{{
             entryForm.type === 'education'
               ? '学校'
               : entryForm.type === 'experience'
-                ? '组织'
-                : entryForm.type === 'skill'
-                  ? '技能名称'
-                  : '项目名称'
+                ? '组织 / 公司'
+                : '项目名称'
           }}</span
           ><a-input v-model:value="entryForm.primary"
         /></label>
-        <label
+        <label v-if="entryForm.type !== 'skill'"
           ><span>{{
             entryForm.type === 'education'
               ? '专业'
               : entryForm.type === 'experience'
                 ? '职位'
-                : entryForm.type === 'skill'
-                  ? '分类'
-                  : '角色'
+                : '担任角色'
           }}</span
           ><a-input v-model:value="entryForm.secondary"
         /></label>
@@ -444,46 +434,46 @@ onMounted(() => void loadProfile());
             ><span>学历</span><a-input v-model:value="entryForm.degree"
           /></label>
           <label
-            ><span>开始时间</span
-            ><a-input v-model:value="entryForm.startDate" placeholder="YYYY-MM"
-          /></label>
-          <label
-            ><span>结束时间</span
-            ><a-input
-              v-model:value="entryForm.endDate"
-              :disabled="entryForm.isCurrent"
-              placeholder="YYYY-MM"
-          /></label>
-          <label class="checkbox"
-            ><a-checkbox v-model:checked="entryForm.isCurrent">仍在进行</a-checkbox></label
+            ><span>开始时间</span>
+            <a-date-picker
+              :value="entryForm.startDate || undefined"
+              class="month-picker"
+              picker="month"
+              format="YYYY年MM月"
+              value-format="YYYY-MM"
+              :allow-clear="false"
+              placeholder="选择开始月份"
+              @change="entryForm.startDate = $event"
+            />
+          </label>
+          <label class="end-date-field"
+            ><span>结束时间</span>
+            <div class="end-date-control">
+              <a-date-picker
+                :disabled="entryForm.isCurrent"
+                :value="entryForm.endDate || undefined"
+                class="month-picker"
+                picker="month"
+                format="YYYY年MM月"
+                value-format="YYYY-MM"
+                placeholder="选择结束月份"
+                @change="entryForm.endDate = $event || ''"
+              />
+              <a-checkbox v-model:checked="entryForm.isCurrent">至今</a-checkbox>
+            </div></label
           >
         </template>
         <template v-if="entryForm.type === 'education'">
           <label><span>绩点</span><a-input v-model:value="entryForm.grade" /></label
           ><label><span>排名</span><a-input v-model:value="entryForm.ranking" /></label>
         </template>
-        <label v-if="entryForm.type === 'skill'"
-          ><span>熟练度（可选）</span><a-input v-model:value="entryForm.proficiency"
-        /></label>
-        <label v-if="entryForm.type === 'project'" class="wide"
-          ><span>项目背景</span><a-textarea v-model:value="entryForm.background" :rows="3"
-        /></label>
-        <label v-if="entryForm.type === 'project' || entryForm.type === 'experience'" class="wide"
-          ><span>职责（每行一项）</span
-          ><a-textarea v-model:value="entryForm.responsibilities" :rows="4"
-        /></label>
-        <label v-if="entryForm.type === 'project' || entryForm.type === 'experience'" class="wide"
-          ><span>{{ entryForm.type === 'project' ? '技术栈' : '相关技能' }}（每行一项）</span
-          ><a-textarea v-model:value="entryForm.technologies" :rows="3"
-        /></label>
-        <label v-if="entryForm.type === 'project' || entryForm.type === 'experience'" class="wide"
-          ><span>成果（每行一项）</span><a-textarea v-model:value="entryForm.outcomes" :rows="3"
-        /></label>
-        <label v-if="entryForm.type === 'project'"
-          ><span>项目链接</span><a-input v-model:value="entryForm.url" placeholder="https://"
-        /></label>
-        <label v-if="entryForm.type === 'education' || entryForm.type === 'skill'" class="wide"
-          ><span>补充说明</span><a-textarea v-model:value="entryForm.description" :rows="4"
+        <label class="wide"
+          ><span>{{ entryForm.type === 'education' ? '补充说明' : '内容描述' }}</span
+          ><a-textarea
+            v-model:value="entryForm.description"
+            :rows="4"
+            :maxlength="entryForm.type === 'education' ? 2000 : 1000"
+            :show-count="entryForm.type !== 'education'"
         /></label>
       </div>
     </a-modal>
@@ -604,9 +594,14 @@ onMounted(() => void loadProfile());
 .wide {
   grid-column: 1 / -1;
 }
-.checkbox {
-  align-self: end;
-  padding-bottom: 0.4rem;
+.month-picker {
+  width: 100%;
+}
+.end-date-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
 }
 .save-button {
   min-height: 2.7rem;
