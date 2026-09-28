@@ -13,7 +13,7 @@ const emit = defineEmits<{
   move: [index: number, direction: -1 | 1];
 }>();
 const labels: Record<ProfileEntryType, { title: string; hint: string; add: string }> = {
-  education: { title: '教育经历', hint: '学校、专业、学历与成绩信息', add: '添加教育经历' },
+  education: { title: '教育经历', hint: '学校、专业、学历与绩点信息', add: '添加教育经历' },
   project: { title: '项目经历', hint: '记录你真正参与过的项目和成果', add: '添加项目经历' },
   experience: { title: '实习 / 工作', hint: '组织、职位、职责与可验证成果', add: '添加实习或工作' },
   skill: { title: '技能清单', hint: '按分类维护可复用的技能条目', add: '添加技能' },

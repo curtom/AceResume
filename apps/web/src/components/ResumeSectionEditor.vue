@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import {
   ResumeSectionSchema,
   EMPTY_RICH_TEXT,
@@ -7,8 +8,20 @@ import {
 } from '@aceresume/resume-schema';
 import ResumeRichTextEditor from './ResumeRichTextEditor.vue';
 
-const props = defineProps<{ section: ResumeSection }>();
-const emit = defineEmits<{ update: [section: ResumeSection]; remove: [] }>();
+const props = defineProps<{
+  section: ResumeSection;
+  targetRole?: string | null;
+  avatarUrl?: string | null;
+  isAvatarBusy?: boolean;
+}>();
+const emit = defineEmits<{
+  update: [section: ResumeSection];
+  updateTarget: [value: string];
+  uploadAvatar: [file: globalThis.File];
+  removeAvatar: [];
+  remove: [];
+}>();
+const avatarInput = ref<globalThis.HTMLInputElement | null>(null);
 const copy = (): ResumeSection => JSON.parse(JSON.stringify(props.section));
 function commit(change: (section: ResumeSection) => void): void {
   const next = copy();
@@ -31,9 +44,13 @@ function setBasic(
   });
 }
 function setTarget(value: string): void {
-  commit((section) => {
-    if (section.type === 'target') section.content.role = value || null;
-  });
+  emit('updateTarget', value);
+}
+function selectAvatar(event: globalThis.Event): void {
+  const input = event.target as globalThis.HTMLInputElement;
+  const file = input.files?.[0];
+  if (file) emit('uploadAvatar', file);
+  input.value = '';
 }
 function setBody(value: RichTextDocument): void {
   commit((section) => {
@@ -151,6 +168,34 @@ function moveEntry(index: number, direction: -1 | 1): void {
       </a-popconfirm>
     </div>
     <div v-if="section.type === 'basic'" class="field-grid">
+      <div class="avatar-field wide">
+        <span>个人头像</span>
+        <div class="avatar-control">
+          <img v-if="avatarUrl" :src="avatarUrl" alt="当前简历头像" />
+          <div v-else class="avatar-placeholder">暂无头像</div>
+          <div class="avatar-actions">
+            <label class="avatar-upload">
+              {{ isAvatarBusy ? '处理中…' : avatarUrl ? '更换头像' : '上传头像' }}
+              <input
+                ref="avatarInput"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                :disabled="isAvatarBusy"
+                @change="selectAvatar"
+              />
+            </label>
+            <button
+              v-if="avatarUrl"
+              type="button"
+              :disabled="isAvatarBusy"
+              @click="emit('removeAvatar')"
+            >
+              移除头像
+            </button>
+            <small>支持 JPG、PNG、WebP，文件不超过 2 MB</small>
+          </div>
+        </div>
+      </div>
       <label
         v-for="field in ['fullName', 'email', 'phone', 'location', 'website'] as const"
         :key="field"
@@ -169,6 +214,13 @@ function moveEntry(index: number, direction: -1 | 1): void {
           @change="setBasic(field, $event.target.value)"
         />
       </label>
+      <label
+        ><span>求职意向</span
+        ><a-input
+          :value="targetRole ?? ''"
+          placeholder="例如：前端开发工程师"
+          @change="setTarget($event.target.value)"
+      /></label>
     </div>
     <label v-else-if="section.type === 'target'"
       ><span>目标职位</span
@@ -179,6 +231,31 @@ function moveEntry(index: number, direction: -1 | 1): void {
       :model-value="section.content.body"
       @update:model-value="setBody"
     />
+    <template v-else-if="section.type === 'skill'">
+      <article v-for="(entry, index) in section.content.entries" :key="entry.id" class="entry-card">
+        <div class="entry-actions">
+          <b>条目 {{ index + 1 }}</b>
+          <span>
+            <button type="button" :disabled="index === 0" @click="moveEntry(index, -1)">↑</button>
+            <button
+              type="button"
+              :disabled="index === section.content.entries.length - 1"
+              @click="moveEntry(index, 1)"
+            >
+              ↓
+            </button>
+            <button type="button" @click="removeEntry(index)">删除</button>
+          </span>
+        </div>
+        <label
+          ><span>内容描述</span
+          ><ResumeRichTextEditor
+            :model-value="entry.description"
+            @update:model-value="updateEntry(index, 'description', $event)"
+        /></label>
+      </article>
+      <button class="add-entry" type="button" @click="addEntry">＋ 添加条目</button>
+    </template>
     <template v-else>
       <article v-for="(entry, index) in section.content.entries" :key="entry.id" class="entry-card">
         <div class="entry-actions">
@@ -229,12 +306,6 @@ function moveEntry(index: number, direction: -1 | 1): void {
                 :value="entry.position"
                 @change="updateEntry(index, 'position', $event.target.value)"
             /></label>
-            <label
-              ><span>地点</span
-              ><a-input
-                :value="entry.location ?? ''"
-                @change="updateEntry(index, 'location', $event.target.value || null)"
-            /></label>
           </template>
           <template v-else-if="'technologies' in entry">
             <label
@@ -248,21 +319,6 @@ function moveEntry(index: number, direction: -1 | 1): void {
               ><a-input
                 :value="entry.role ?? ''"
                 @change="updateEntry(index, 'role', $event.target.value || null)"
-            /></label>
-            <label class="wide"
-              ><span>技术栈（用逗号分隔）</span
-              ><a-input
-                :value="entry.technologies.join(', ')"
-                @change="
-                  updateEntry(
-                    index,
-                    'technologies',
-                    $event.target.value
-                      .split(',')
-                      .map((v: string) => v.trim())
-                      .filter(Boolean),
-                  )
-                "
             /></label>
           </template>
           <template v-else-if="'awardedAt' in entry">
@@ -286,26 +342,6 @@ function moveEntry(index: number, direction: -1 | 1): void {
                 @change="updateEntry(index, 'awardedAt', $event.target.value || null)"
             /></label>
           </template>
-          <template v-else-if="'proficiency' in entry">
-            <label
-              ><span>分类</span
-              ><a-input
-                :value="entry.category"
-                @change="updateEntry(index, 'category', $event.target.value)"
-            /></label>
-            <label
-              ><span>技能名称</span
-              ><a-input
-                :value="entry.name"
-                @change="updateEntry(index, 'name', $event.target.value)"
-            /></label>
-            <label
-              ><span>熟练度</span
-              ><a-input
-                :value="entry.proficiency ?? ''"
-                @change="updateEntry(index, 'proficiency', $event.target.value || null)"
-            /></label>
-          </template>
           <template v-else>
             <label
               ><span>组织</span
@@ -323,25 +359,35 @@ function moveEntry(index: number, direction: -1 | 1): void {
           <template v-if="'startDate' in entry">
             <label
               ><span>开始时间</span
-              ><a-input
+              ><a-date-picker
                 :value="entry.startDate"
-                placeholder="YYYY-MM"
-                @change="updateEntry(index, 'startDate', $event.target.value)"
+                class="month-picker"
+                picker="month"
+                format="YYYY年MM月"
+                value-format="YYYY-MM"
+                :allow-clear="false"
+                placeholder="选择开始月份"
+                @change="updateEntry(index, 'startDate', $event)"
             /></label>
-            <label
-              ><span>结束时间</span
-              ><a-input
-                :disabled="entry.isCurrent"
-                :value="entry.endDate ?? ''"
-                placeholder="YYYY-MM"
-                @change="updateEntry(index, 'endDate', $event.target.value || null)"
-            /></label>
-            <label class="checkbox"
-              ><a-checkbox
-                :checked="entry.isCurrent"
-                @change="updateEntry(index, 'isCurrent', $event.target.checked)"
-                >仍在进行</a-checkbox
-              ></label
+            <label class="end-date-field"
+              ><span>结束时间</span>
+              <div class="end-date-control">
+                <a-date-picker
+                  :disabled="entry.isCurrent"
+                  :value="entry.endDate"
+                  class="month-picker"
+                  picker="month"
+                  format="YYYY年MM月"
+                  value-format="YYYY-MM"
+                  placeholder="选择结束月份"
+                  @change="updateEntry(index, 'endDate', $event || null)"
+                />
+                <a-checkbox
+                  :checked="entry.isCurrent"
+                  @change="updateEntry(index, 'isCurrent', $event.target.checked)"
+                  >至今</a-checkbox
+                >
+              </div></label
             >
           </template>
           <label v-if="'description' in entry" class="wide"
@@ -387,9 +433,77 @@ label {
 .wide {
   grid-column: 1 / -1;
 }
-.checkbox {
-  align-content: end;
-  min-height: 3.7rem;
+.month-picker {
+  width: 100%;
+}
+.end-date-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+.avatar-field {
+  display: grid;
+  gap: 0.4rem;
+  color: #445168;
+  font-size: 0.82rem;
+}
+.avatar-control {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem;
+  border: 1px solid #e0e4eb;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+.avatar-control img,
+.avatar-placeholder {
+  width: 4.5rem;
+  height: 5.6rem;
+  flex: 0 0 auto;
+  border-radius: 5px;
+}
+.avatar-control img {
+  object-fit: cover;
+}
+.avatar-placeholder {
+  display: grid;
+  place-items: center;
+  border: 1px dashed #b8c1d0;
+  color: #8a94a5;
+  font-size: 0.7rem;
+}
+.avatar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+.avatar-actions button,
+.avatar-upload {
+  padding: 0.48rem 0.75rem;
+  border: 1px solid #8fa4cc;
+  border-radius: 5px;
+  background: #fff;
+  color: #173fbd;
+  cursor: pointer;
+}
+.avatar-actions button:disabled,
+.avatar-upload:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.avatar-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+.avatar-actions small {
+  flex-basis: 100%;
+  color: #7b8494;
 }
 .entry-card {
   padding: 1rem;

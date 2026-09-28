@@ -55,6 +55,7 @@ const aiJobDescription = ref('');
 const aiConsent = ref(false);
 const editedSuggestions = ref<Record<string, string>>({});
 const isCreatingExport = ref(false);
+const isAvatarBusy = ref(false);
 const isFormCollapsed = ref(false);
 const templates = ref<TemplateSummary[]>([]);
 const diagnostics = ref<RenderDiagnostics | null>(null);
@@ -101,6 +102,9 @@ const currentTemplate = computed(
     detail.value?.template ??
     templates.value.find((item) => item.versionId === document.value?.templateVersionId),
 );
+const targetSection = computed(() =>
+  document.value?.sections.find((section) => section.type === 'target'),
+);
 const hasBlockingPreviewRisk = computed(
   () =>
     Boolean(diagnostics.value) &&
@@ -128,6 +132,41 @@ function dropSection(to: number): void {
 function selectSection(id: string): void {
   store.selectedSectionId = id;
   isFormCollapsed.value = false;
+}
+function updateTarget(value: string): void {
+  const section = targetSection.value;
+  if (section?.type === 'target')
+    store.updateSection({ ...section, content: { role: value.trim() || null } });
+}
+async function uploadAvatar(file: globalThis.File): Promise<void> {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    message.error('头像仅支持 JPG、PNG 或 WebP 图片。');
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    message.error('头像不能超过 2 MB。');
+    return;
+  }
+  isAvatarBusy.value = true;
+  try {
+    await store.uploadAvatar(file);
+    message.success('头像已更新。');
+  } catch (error: unknown) {
+    message.error(getApiErrorMessage(error));
+  } finally {
+    isAvatarBusy.value = false;
+  }
+}
+async function removeAvatar(): Promise<void> {
+  isAvatarBusy.value = true;
+  try {
+    await store.removeAvatar();
+    message.success('头像已移除。');
+  } catch (error: unknown) {
+    message.error(getApiErrorMessage(error));
+  } finally {
+    isAvatarBusy.value = false;
+  }
 }
 function retryOnline(): void {
   if (store.saveStatus === 'failed') void store.saveNow();
@@ -355,19 +394,20 @@ onBeforeUnmount(() => {
       <aside class="sections-panel">
         <p>CONTENT BLOCKS</p>
         <h2>简历模块</h2>
-        <button
-          v-for="(section, index) in document.sections"
-          :key="section.id"
-          draggable="true"
-          :class="{ active: store.selectedSectionId === section.id, hidden: !section.isVisible }"
-          @dragstart="draggedIndex = index"
-          @dragover.prevent
-          @drop="dropSection(index)"
-          @click="selectSection(section.id)"
-        >
-          <i>⠿</i><span>{{ section.title }}</span
-          ><small>{{ section.isVisible ? '显示' : '隐藏' }}</small>
-        </button>
+        <template v-for="(section, index) in document.sections" :key="section.id">
+          <button
+            v-if="section.type !== 'target'"
+            draggable="true"
+            :class="{ active: store.selectedSectionId === section.id, hidden: !section.isVisible }"
+            @dragstart="draggedIndex = index"
+            @dragover.prevent
+            @drop="dropSection(index)"
+            @click="selectSection(section.id)"
+          >
+            <i>⠿</i><span>{{ section.title }}</span
+            ><small>{{ section.isVisible ? '显示' : '隐藏' }}</small>
+          </button>
+        </template>
         <button class="custom-add" @click="store.addCustomSection">＋ 自定义模块</button>
       </aside>
       <section class="form-panel">
@@ -410,7 +450,13 @@ onBeforeUnmount(() => {
         <ResumeSectionEditor
           v-if="selectedSection"
           :section="selectedSection"
+          :target-role="targetSection?.type === 'target' ? targetSection.content.role : null"
+          :avatar-url="detail?.avatarUrl ?? null"
+          :is-avatar-busy="isAvatarBusy"
           @update="store.updateSection"
+          @update-target="updateTarget"
+          @upload-avatar="uploadAvatar"
+          @remove-avatar="removeAvatar"
           @remove="store.removeCustomSection(selectedSection.id)"
         />
       </section>
@@ -421,6 +467,7 @@ onBeforeUnmount(() => {
         </div>
         <ResumePreview
           :document="document"
+          :avatar-url="detail?.avatarUrl ?? null"
           v-bind="currentTemplate ? { template: currentTemplate } : {}"
           @diagnostics="diagnostics = $event"
         />

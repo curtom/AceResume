@@ -47,6 +47,21 @@ export async function setResumeArchived(
 export async function saveResume(id: string, input: SaveResumeRequest): Promise<ResumeDetail> {
   return detailResponse.parse((await http.put(`/resumes/${id}/document`, input)).data).data;
 }
+export async function uploadResumeAvatar(
+  id: string,
+  baseVersion: number,
+  file: File,
+): Promise<ResumeDetail> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('baseVersion', String(baseVersion));
+  return detailResponse.parse((await http.put(`/resumes/${id}/avatar`, form)).data).data;
+}
+export async function removeResumeAvatar(id: string, baseVersion: number): Promise<ResumeDetail> {
+  return detailResponse.parse(
+    (await http.delete(`/resumes/${id}/avatar`, { data: { baseVersion } })).data,
+  ).data;
+}
 export async function deleteResume(id: string): Promise<string> {
   return messageResponse.parse((await http.delete(`/resumes/${id}`)).data).data.message;
 }

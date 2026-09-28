@@ -111,7 +111,28 @@ const pdfWorker = new Worker(
       );
       const font = await readFile(fontPath);
       const fontUrl = `data:font/ttf;base64,${font.toString('base64')}`;
-      const html = renderResume({ resume, template: definition, mode: 'print', fontUrl });
+      const basic = resume.sections.find((section) => section.type === 'basic');
+      const avatarObjectKey =
+        basic?.type === 'basic' ? (basic.content.avatarObjectKey ?? null) : null;
+      let avatarUrl: string | undefined;
+      if (avatarObjectKey) {
+        const chunks: Buffer[] = [];
+        for await (const chunk of await storage.getObject(
+          environment.STORAGE_BUCKET,
+          avatarObjectKey,
+        ))
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        const extension = avatarObjectKey.split('.').pop();
+        const mimeType = extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
+        avatarUrl = `data:${mimeType};base64,${Buffer.concat(chunks).toString('base64')}`;
+      }
+      const html = renderResume({
+        resume,
+        template: definition,
+        mode: 'print',
+        fontUrl,
+        ...(avatarUrl ? { avatarUrl } : {}),
+      });
       const browser = await chromium.launch({ headless: true });
       let pdf: Buffer;
       let diagnostics;

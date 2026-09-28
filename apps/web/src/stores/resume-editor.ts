@@ -94,7 +94,8 @@ export const useResumeEditorStore = defineStore('resume-editor', {
     moveSection(sectionId: string, direction: -1 | 1): void {
       this.mutate((document) => {
         const index = document.sections.findIndex((section) => section.id === sectionId);
-        const target = index + direction;
+        let target = index + direction;
+        while (document.sections[target]?.type === 'target') target += direction;
         if (index < 0 || target < 0 || target >= document.sections.length) return;
         const [section] = document.sections.splice(index, 1);
         if (section) document.sections.splice(target, 0, section);
@@ -207,6 +208,22 @@ export const useResumeEditorStore = defineStore('resume-editor', {
           this.errorMessage = getApiErrorMessage(error);
         }
       }
+    },
+    async uploadAvatar(file: File): Promise<void> {
+      if (!this.detail) return;
+      if (this.isDirty) await this.saveNow();
+      if (this.saveStatus !== 'saved') throw new Error('请先解决当前简历的保存问题。');
+      this.applyServerDetail(
+        await resumeApi.uploadResumeAvatar(this.detail.id, this.detail.version, file),
+      );
+    },
+    async removeAvatar(): Promise<void> {
+      if (!this.detail) return;
+      if (this.isDirty) await this.saveNow();
+      if (this.saveStatus !== 'saved') throw new Error('请先解决当前简历的保存问题。');
+      this.applyServerDetail(
+        await resumeApi.removeResumeAvatar(this.detail.id, this.detail.version),
+      );
     },
     async restorePendingDraft(): Promise<void> {
       if (!this.pendingDraft || !this.detail) return;

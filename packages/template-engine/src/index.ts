@@ -211,15 +211,14 @@ function renderEntries(section: ResumeSection, definition: TemplateDefinition): 
     .map((entry, index) => {
       let body = '';
       if ('school' in entry)
-        body = `<header><strong>${escapeHtml(entry.school)}</strong><time>${formatDate(entry.startDate, entry.endDate, entry.isCurrent)}</time></header><div class="sub">${escapeHtml(entry.degree)} · ${escapeHtml(entry.major)}</div>${renderRichText(entry.description)}`;
+        body = `<header class="entry-heading"><strong>${escapeHtml(entry.school)}</strong><span>${escapeHtml(entry.major)} · ${escapeHtml(entry.degree)}</span><time>${formatDate(entry.startDate, entry.endDate, entry.isCurrent)}</time></header>${renderRichText(entry.description)}`;
       else if ('position' in entry)
-        body = `<header><strong>${escapeHtml(entry.organization)}</strong><time>${formatDate(entry.startDate, entry.endDate, entry.isCurrent)}</time></header><div class="sub">${escapeHtml(entry.position)}${entry.location ? ` · ${escapeHtml(entry.location)}` : ''}</div>${renderRichText(entry.description)}`;
+        body = `<header class="entry-heading"><strong>${escapeHtml(entry.organization)}</strong><span>${escapeHtml(entry.position)}</span><time>${formatDate(entry.startDate, entry.endDate, entry.isCurrent)}</time></header>${renderRichText(entry.description)}`;
       else if ('technologies' in entry)
-        body = `<header><strong>${escapeHtml(entry.name)}</strong><time>${formatDate(entry.startDate, entry.endDate, entry.isCurrent)}</time></header><div class="sub">${escapeHtml(entry.role ?? '')}${entry.technologies.length ? ` · ${entry.technologies.map(escapeHtml).join(' / ')}` : ''}</div>${renderRichText(entry.description)}`;
+        body = `<header class="entry-heading"><strong>${escapeHtml(entry.name)}</strong><span>${escapeHtml(entry.role ?? '')}</span><time>${formatDate(entry.startDate, entry.endDate, entry.isCurrent)}</time></header>${renderRichText(entry.description)}`;
       else if ('awardedAt' in entry)
         body = `<header><strong>${escapeHtml(entry.name)}</strong><time>${escapeHtml(entry.awardedAt ?? '')}</time></header><div class="sub">${escapeHtml(entry.issuer ?? '')}</div>${renderRichText(entry.description)}`;
-      else if ('proficiency' in entry)
-        body = `<header><strong>${escapeHtml(entry.category)} · ${escapeHtml(entry.name)}</strong><span>${escapeHtml(entry.proficiency ?? '')}</span></header>${renderRichText(entry.description)}`;
+      else if ('proficiency' in entry) body = renderRichText(entry.description);
       else
         body = `<header><strong>${escapeHtml(entry.organization)}</strong><time>${formatDate(entry.startDate, entry.endDate, entry.isCurrent)}</time></header><div class="sub">${escapeHtml(entry.role)}</div>${renderRichText(entry.description)}`;
       return `<article class="resume-block entry ${section.type === 'skill' ? 'skill' : ''}" data-region="${region}">${index === 0 ? `<h2>${escapeHtml(section.title)}</h2>` : ''}${body}</article>`;
@@ -227,12 +226,17 @@ function renderEntries(section: ResumeSection, definition: TemplateDefinition): 
     .join('');
 }
 
-function renderSection(section: ResumeSection, definition: TemplateDefinition): string {
+function renderSection(
+  section: ResumeSection,
+  definition: TemplateDefinition,
+  targetRole: string | null,
+  avatarUrl?: string,
+): string {
   if (!section.isVisible) return '';
   const region = sectionRegion(section, definition);
   if (section.type === 'basic') {
     const { fullName, email, phone, location, website } = section.content;
-    return `<header class="resume-block identity" data-region="${region}"><h1>${escapeHtml(fullName ?? '未命名')}</h1><p>${[
+    return `<header class="resume-block identity" data-region="${region}"><div class="identity-main"><h1>${escapeHtml(fullName ?? '未命名')}</h1>${targetRole ? `<p class="target">求职意向 · ${escapeHtml(targetRole)}</p>` : ''}<p>${[
       email,
       phone,
       location,
@@ -240,12 +244,11 @@ function renderSection(section: ResumeSection, definition: TemplateDefinition): 
     ]
       .filter(Boolean)
       .map((value) => escapeHtml(String(value)))
-      .join(' · ')}</p></header>`;
+      .join(
+        ' · ',
+      )}</p></div>${avatarUrl ? `<img class="resume-avatar" src="${escapeHtml(avatarUrl)}" alt="个人头像">` : ''}</header>`;
   }
-  if (section.type === 'target')
-    return section.content.role
-      ? `<p class="resume-block target" data-region="${region}">求职意向 · ${escapeHtml(section.content.role)}</p>`
-      : '';
+  if (section.type === 'target') return '';
   const entries = renderEntries(section, definition);
   if (entries) return entries;
   const body =
@@ -266,7 +269,7 @@ function css(
   const fontFace = fontUrl
     ? `@font-face{font-family:"Noto Sans SC";src:url("${escapeHtml(fontUrl)}") format("truetype");font-weight:100 900;font-display:block}`
     : '';
-  return `${fontFace}@page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0}body{background:${mode === 'screen' ? '#dfe4eb' : '#fff'};color:#182338;font-family:"Noto Sans SC",sans-serif;font-size:${theme.fontSize}px;line-height:${theme.lineHeight}}#resume-source{display:none}.resume-pages{padding:${mode === 'screen' ? '18px 0' : '0'}}.page{width:210mm;height:297mm;margin:${mode === 'screen' ? '0 auto 18px' : '0'};padding:${theme.pageMargin.top}mm ${theme.pageMargin.right}mm ${theme.pageMargin.bottom}mm ${theme.pageMargin.left}mm;overflow:hidden;background:#fff;box-shadow:${mode === 'screen' ? '0 18px 60px rgba(19,32,61,.16)' : 'none'};break-after:page}.page:last-child{break-after:auto}.page-inner{display:grid;width:100%;height:100%;grid-template-columns:1fr;gap:10mm}.page-inner.two-column{grid-template-columns:31% minmax(0,1fr)}.region{min-width:0;min-height:0;overflow:hidden}.page-inner:not(.two-column) .sidebar{display:none}.resume-block{margin:0 0 ${theme.sectionGap}px;break-inside:avoid}.identity{border-bottom:2px solid ${theme.accentColor};padding-bottom:10px}.identity h1{margin:0;font-size:30px;line-height:1.12;letter-spacing:.05em}.identity p,.target{margin:${theme.paragraphGap}px 0;color:#536078}.target{font-weight:700;color:${theme.accentColor}}h2{margin:0 0 8px;border-bottom:1px solid #ccd3df;color:${theme.accentColor};font-size:14px;letter-spacing:.1em}.entry>h2{margin-bottom:10px}.entry header{display:flex;justify-content:space-between;gap:12px}.entry strong{font-weight:750}time{white-space:nowrap;color:#647087}.sub{margin:2px 0;color:#59657a}p{margin:${theme.paragraphGap}px 0}ul,ol{margin:${theme.paragraphGap}px 0;padding-left:20px}.skill header{border-left:3px solid ${theme.accentColor};padding-left:7px}a{color:${theme.accentColor}}.template-modern h2{border:0;border-left:5px solid ${theme.accentColor};padding-left:8px}.template-modern .identity{border-bottom-width:1px}.template-technical .identity{padding:14px;background:#102a43;color:#fff;border:0}.template-technical .identity p{color:#d5e6f0}.template-technical h2{padding:5px 8px;background:#e8f3f6;border:0}.template-campus .identity{padding:16px;background:#fff1e8;border:0}.template-campus h2{border-bottom:2px dotted ${theme.accentColor}}.template-academic{color:#202020}.template-academic .identity,.template-academic h2{border-color:#202020}.template-academic h2{color:#202020;text-transform:uppercase}.template-slate .sidebar{margin:${-theme.pageMargin.top}mm 0 ${-theme.pageMargin.bottom}mm ${-theme.pageMargin.left}mm;padding:${theme.pageMargin.top}mm 7mm ${theme.pageMargin.bottom}mm ${theme.pageMargin.left}mm;background:#e8eef3}.template-coral .sidebar{margin:${-theme.pageMargin.top}mm 0 ${-theme.pageMargin.bottom}mm ${-theme.pageMargin.left}mm;padding:${theme.pageMargin.top}mm 7mm ${theme.pageMargin.bottom}mm ${theme.pageMargin.left}mm;background:#fff0eb}.template-slate .sidebar .identity h1,.template-coral .sidebar .identity h1{font-size:24px}.template-slate .sidebar .entry header,.template-coral .sidebar .entry header{display:block}.template-compact{font-size:${Math.max(9, theme.fontSize - 1)}px}.template-compact .resume-block{margin-bottom:${Math.max(6, theme.sectionGap - 4)}px}.template-compact .identity h1{font-size:26px}.page-number{position:absolute;right:8mm;bottom:5mm;color:#98a1ae;font-size:7px}.page{position:relative}@media print{body{background:#fff}.resume-pages{padding:0}.page{margin:0;box-shadow:none}}`;
+  return `${fontFace}@page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0}body{background:${mode === 'screen' ? '#dfe4eb' : '#fff'};color:#182338;font-family:"Noto Sans SC",sans-serif;font-size:${theme.fontSize}px;line-height:${theme.lineHeight}}#resume-source{display:none}.resume-pages{padding:${mode === 'screen' ? '18px 0' : '0'}}.page{width:210mm;height:297mm;margin:${mode === 'screen' ? '0 auto 18px' : '0'};padding:${theme.pageMargin.top}mm ${theme.pageMargin.right}mm ${theme.pageMargin.bottom}mm ${theme.pageMargin.left}mm;overflow:hidden;background:#fff;box-shadow:${mode === 'screen' ? '0 18px 60px rgba(19,32,61,.16)' : 'none'};break-after:page}.page:last-child{break-after:auto}.page-inner{display:grid;width:100%;height:100%;grid-template-columns:1fr;gap:10mm}.page-inner.two-column{grid-template-columns:31% minmax(0,1fr)}.region{min-width:0;min-height:0;overflow:hidden}.page-inner:not(.two-column) .sidebar{display:none}.resume-block{margin:0 0 ${theme.sectionGap}px;break-inside:avoid}.identity{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;border-bottom:2px solid ${theme.accentColor};padding-bottom:10px}.identity-main{min-width:0}.identity h1{margin:0;font-size:30px;line-height:1.12;letter-spacing:.05em}.identity p,.target{margin:${theme.paragraphGap}px 0;color:#536078}.target{font-weight:700;color:${theme.accentColor}}.resume-avatar{width:24mm;height:30mm;object-fit:cover;object-position:center;border-radius:3px}h2{margin:0 0 8px;border-bottom:1px solid #ccd3df;color:${theme.accentColor};font-size:14px;letter-spacing:.1em}.entry>h2{margin-bottom:10px}.entry header{display:flex;justify-content:space-between;gap:12px}.entry .entry-heading{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:baseline}.entry-heading>span{text-align:center}.entry-heading>time{justify-self:end}.entry strong{font-weight:750}time{white-space:nowrap;color:#647087}.sub{margin:2px 0;color:#59657a}p{margin:${theme.paragraphGap}px 0}ul,ol{margin:${theme.paragraphGap}px 0;padding-left:20px}a{color:${theme.accentColor}}.template-modern h2{border:0;border-left:5px solid ${theme.accentColor};padding-left:8px}.template-modern .identity{border-bottom-width:1px}.template-technical .identity{padding:14px;background:#102a43;color:#fff;border:0}.template-technical .identity p{color:#d5e6f0}.template-technical h2{padding:5px 8px;background:#e8f3f6;border:0}.template-campus .identity{padding:16px;background:#fff1e8;border:0}.template-campus h2{border-bottom:2px dotted ${theme.accentColor}}.template-academic{color:#202020}.template-academic .identity,.template-academic h2{border-color:#202020}.template-academic h2{color:#202020;text-transform:uppercase}.template-slate .sidebar{margin:${-theme.pageMargin.top}mm 0 ${-theme.pageMargin.bottom}mm ${-theme.pageMargin.left}mm;padding:${theme.pageMargin.top}mm 7mm ${theme.pageMargin.bottom}mm ${theme.pageMargin.left}mm;background:#e8eef3}.template-coral .sidebar{margin:${-theme.pageMargin.top}mm 0 ${-theme.pageMargin.bottom}mm ${-theme.pageMargin.left}mm;padding:${theme.pageMargin.top}mm 7mm ${theme.pageMargin.bottom}mm ${theme.pageMargin.left}mm;background:#fff0eb}.template-slate .sidebar .identity h1,.template-coral .sidebar .identity h1{font-size:24px}.template-slate .sidebar .entry header,.template-coral .sidebar .entry header{display:block}.template-compact{font-size:${Math.max(9, theme.fontSize - 1)}px}.template-compact .resume-block{margin-bottom:${Math.max(6, theme.sectionGap - 4)}px}.template-compact .identity h1{font-size:26px}.page-number{position:absolute;right:8mm;bottom:5mm;color:#98a1ae;font-size:7px}.page{position:relative}@media print{body{background:#fff}.resume-pages{padding:0}.page{margin:0;box-shadow:none}}`;
 }
 
 function paginationScript(definition: TemplateDefinition, instanceId: string): string {
@@ -289,14 +292,17 @@ export function renderResume(input: {
   theme?: ResumeTheme;
   mode: 'screen' | 'print';
   fontUrl?: string;
+  avatarUrl?: string;
   instanceId?: string;
 }): string {
   const definition = input.template ?? getTemplateDefinition(input.resume.templateVersionId);
   if (!definition) throw new Error(`Unknown template version: ${input.resume.templateVersionId}`);
   const theme = input.theme ?? input.resume.theme;
+  const target = input.resume.sections.find((section) => section.type === 'target');
+  const targetRole = target?.type === 'target' ? target.content.role : null;
   const blocks = [...input.resume.sections]
     .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((section) => renderSection(section, definition))
+    .map((section) => renderSection(section, definition, targetRole, input.avatarUrl))
     .join('');
   return `<!doctype html><html lang="${input.resume.locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>${css(theme, definition, input.mode, input.fontUrl)}</style></head><body class="template-${definition.visualStyle}" data-layout="${definition.layout}"><div id="resume-source">${blocks}</div><main id="resume-pages" class="resume-pages"></main>${paginationScript(definition, input.instanceId ?? 'server')}</body></html>`;
 }
@@ -389,7 +395,7 @@ export const SAMPLE_RESUME_DOCUMENT: ResumeDocument = {
     {
       id: '00000000-0000-4000-8000-000000000015',
       type: 'skill',
-      title: '技能清单',
+      title: '专业技能',
       sortOrder: 4,
       isVisible: true,
       schemaVersion: 1,

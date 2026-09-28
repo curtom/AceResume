@@ -157,6 +157,7 @@ export const ResumeSectionSchema = z.discriminatedUnion('type', [
           phone: nullableText(40),
           location: nullableText(120),
           website: nullableText(500),
+          avatarObjectKey: nullableText(500).optional(),
         })
         .strict(),
     })

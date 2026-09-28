@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('creates, edits and automatically saves the latest resume', async ({ page }) => {
+  test.setTimeout(60_000);
   await page.setExtraHTTPHeaders({
     'x-forwarded-for': '2001:db8:' + Date.now().toString(16).slice(-4) + '::1',
   });
@@ -20,10 +21,51 @@ test('creates, edits and automatically saves the latest resume', async ({ page }
   await dialog.getByRole('button', { name: '创建并编辑' }).click();
 
   await expect(page.getByRole('button', { name: /基本信息/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^求职意向/ })).toHaveCount(0);
+  await expect(page.getByLabel('求职意向')).toHaveValue('前端开发工程师');
   await page.getByLabel('姓名').fill('林知远');
   await expect(page.getByText('已自动保存')).toBeVisible({ timeout: 8_000 });
   const preview = page.frameLocator('iframe[title="简历实时预览"]');
   await expect(preview.getByRole('heading', { name: '林知远' })).toBeVisible();
+  await page.locator('input[type="file"][accept*="image/jpeg"]').setInputFiles({
+    name: 'avatar.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    ),
+  });
+  await expect(page.getByText('头像已更新。')).toBeVisible();
+  await expect(preview.locator('.resume-avatar')).toHaveCount(1);
+  await page.getByRole('button', { name: '移除头像' }).click();
+  await expect(page.getByText('头像已移除。')).toBeVisible();
+  await expect(preview.locator('.resume-avatar')).toHaveCount(0);
+
+  await page.getByRole('button', { name: /教育经历/ }).click();
+  await page.getByRole('button', { name: '＋ 添加条目' }).click();
+  const startMonth = page.getByPlaceholder('选择开始月份');
+  const endMonth = page.getByPlaceholder('选择结束月份');
+  await expect(startMonth).toHaveAttribute('readonly', '');
+  await expect(endMonth).toBeDisabled();
+  await expect(page.getByText('至今', { exact: true })).toBeVisible();
+  await startMonth.click();
+  await expect(page.locator('.ant-picker-month-panel')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByText('已自动保存')).toBeVisible({ timeout: 8_000 });
+
+  await page.getByRole('button', { name: /实习 \/ 工作经历/ }).click();
+  await page.getByRole('button', { name: '＋ 添加条目' }).click();
+  await expect(page.getByText('地点', { exact: true })).toHaveCount(0);
+
+  await page.getByRole('button', { name: /项目经历/ }).click();
+  await page.getByRole('button', { name: '＋ 添加条目' }).click();
+  await expect(page.getByText(/技术栈/)).toHaveCount(0);
+
+  await page.getByRole('button', { name: /专业技能/ }).click();
+  await page.getByRole('button', { name: '＋ 添加条目' }).click();
+  await expect(page.getByText('内容描述', { exact: true })).toBeVisible();
+  await expect(page.getByText('技能名称', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('已自动保存')).toBeVisible({ timeout: 8_000 });
 
   await page.reload();
   await expect(page.getByLabel('姓名')).toHaveValue('林知远');

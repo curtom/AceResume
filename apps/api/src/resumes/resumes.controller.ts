@@ -7,13 +7,17 @@ import {
   HttpStatus,
   Inject,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Post,
   Put,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   CreateResumeRequestSchema,
   DuplicateResumeRequestSchema,
@@ -91,6 +95,26 @@ export class ResumesController {
     @Body(new ZodValidationPipe(SaveResumeRequestSchema)) input: SaveResumeRequest,
   ) {
     return this.service.save(user.id, id, input);
+  }
+  @Put(':id/avatar')
+  @ApiOperation({ summary: '上传或替换简历头像' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 } }))
+  uploadAvatar(
+    @CurrentUserParam() user: CurrentUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: { size: number; buffer: Buffer } | undefined,
+    @Body('baseVersion', ParseIntPipe) baseVersion: number,
+  ) {
+    return this.service.uploadAvatar(user.id, id, baseVersion, file);
+  }
+  @Delete(':id/avatar')
+  removeAvatar(
+    @CurrentUserParam() user: CurrentUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('baseVersion', ParseIntPipe) baseVersion: number,
+  ) {
+    return this.service.removeAvatar(user.id, id, baseVersion);
   }
   @Delete(':id') @HttpCode(HttpStatus.OK) remove(
     @CurrentUserParam() user: CurrentUser,

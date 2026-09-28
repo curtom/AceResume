@@ -459,7 +459,7 @@ onMounted(() => void loadProfile());
           >
         </template>
         <template v-if="entryForm.type === 'education'">
-          <label><span>成绩</span><a-input v-model:value="entryForm.grade" /></label
+          <label><span>绩点</span><a-input v-model:value="entryForm.grade" /></label
           ><label><span>排名</span><a-input v-model:value="entryForm.ranking" /></label>
         </template>
         <label v-if="entryForm.type === 'skill'"

@@ -20,6 +20,7 @@ import {
   type ResumeDocument,
   type ResumeSection,
 } from '@aceresume/resume-schema';
+import { ObjectStorageAdapter } from '../adapters/object-storage.adapter.js';
 import { AppException } from '../common/app.exception.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { TemplatesService } from '../templates/templates.service.js';
@@ -44,7 +45,7 @@ const TITLES = {
   experience: '实习 / 工作经历',
   project: '项目经历',
   campus: '校园经历',
-  skill: '技能清单',
+  skill: '专业技能',
   award: '奖项证书',
   summary: '自我评价',
 } as const;
@@ -55,6 +56,7 @@ export class ResumesService {
     @Inject(ResumesRepository) private readonly repository: ResumesRepository,
     @Inject(ProfilesService) private readonly profiles: ProfilesService,
     @Inject(TemplatesService) private readonly templates: TemplatesService,
+    @Inject(ObjectStorageAdapter) private readonly storage: ObjectStorageAdapter,
   ) {}
 
   async list(
@@ -91,7 +93,8 @@ export class ResumesService {
       sections: result.sections.map((section) => ({
         id: section.id,
         type: section.type,
-        title: section.title,
+        title:
+          section.type === 'skill' && section.title === '技能清单' ? TITLES.skill : section.title,
         sortOrder: section.sortOrder,
         isVisible: section.isVisible,
         schemaVersion: 1,
@@ -99,7 +102,11 @@ export class ResumesService {
         ...(section.styleOverride ? { styleOverride: section.styleOverride } : {}),
       })),
     });
-    return { ...this.mapSummary(result.resume), document, template };
+    const avatarObjectKey = this.avatarObjectKey(document);
+    const avatarUrl = avatarObjectKey
+      ? await this.storage.createSignedUrl(avatarObjectKey, 60 * 60)
+      : null;
+    return { ...this.mapSummary(result.resume), document, template, avatarUrl };
   }
 
   async create(userId: string, input: CreateResumeRequest): Promise<ResumeDetail> {
@@ -422,11 +429,29 @@ export class ResumesService {
   async duplicate(userId: string, id: string, name?: string): Promise<ResumeDetail> {
     const original = await this.get(userId, id);
     const resumeId = randomUUID();
-    const document: ResumeDocument = {
+    let document: ResumeDocument = {
       ...structuredClone(original.document),
       resumeId,
       sections: original.document.sections.map((section) => this.renewSectionIds(section)),
     };
+    let duplicatedAvatarKey: string | null = null;
+    const originalAvatarKey = this.avatarObjectKey(document);
+    if (originalAvatarKey) {
+      const extension =
+        originalAvatarKey.split('.').pop() === 'jpg' ? 'jpg' : originalAvatarKey.split('.').pop();
+      if (extension && ['jpg', 'png', 'webp'].includes(extension)) {
+        duplicatedAvatarKey = `avatars/${userId}/${resumeId}/${randomUUID()}.${extension}`;
+        const chunks: Buffer[] = [];
+        for await (const chunk of await this.storage.getObject(originalAvatarKey))
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        await this.storage.putObject(
+          duplicatedAvatarKey,
+          Buffer.concat(chunks),
+          extension === 'jpg' ? 'image/jpeg' : `image/${extension}`,
+        );
+        document = this.withAvatarObjectKey(document, duplicatedAvatarKey);
+      }
+    }
     try {
       await this.repository.create({
         id: resumeId,
@@ -440,6 +465,8 @@ export class ResumesService {
         document,
       });
     } catch (error: unknown) {
+      if (duplicatedAvatarKey)
+        await this.storage.deleteObject(duplicatedAvatarKey).catch(() => undefined);
       if (error instanceof ResumeLimitError)
         throw new AppException(
           'RESUME_LIMIT_REACHED',
@@ -470,6 +497,12 @@ export class ResumesService {
         '简历文档 ID 与路径不一致。',
       );
     const current = await this.get(userId, id);
+    if (this.avatarObjectKey(input.document) !== this.avatarObjectKey(current.document))
+      throw new AppException(
+        'VALIDATION_FAILED',
+        HttpStatus.BAD_REQUEST,
+        '头像只能通过头像上传或移除操作更新。',
+      );
     const template =
       current.document.templateVersionId === input.document.templateVersionId
         ? await this.templates.getDefinition(input.document.templateVersionId)
@@ -492,8 +525,75 @@ export class ResumesService {
     return this.get(userId, id);
   }
 
+  async uploadAvatar(
+    userId: string,
+    id: string,
+    baseVersion: number,
+    file: { size: number; buffer: Buffer } | undefined,
+  ): Promise<ResumeDetail> {
+    if (!file?.size)
+      throw new AppException('VALIDATION_FAILED', HttpStatus.BAD_REQUEST, '请选择头像图片。');
+    if (file.size > 2 * 1024 * 1024)
+      throw new AppException(
+        'VALIDATION_FAILED',
+        HttpStatus.PAYLOAD_TOO_LARGE,
+        '头像不能超过 2 MB。',
+      );
+    const extension = this.avatarExtension(file.buffer);
+    if (!extension)
+      throw new AppException(
+        'VALIDATION_FAILED',
+        HttpStatus.BAD_REQUEST,
+        '头像仅支持 JPG、PNG 或 WebP 图片。',
+      );
+    const current = await this.get(userId, id);
+    if (current.version !== baseVersion) throw this.conflict();
+    const previousKey = this.avatarObjectKey(current.document);
+    const objectKey = `avatars/${userId}/${id}/${randomUUID()}.${extension}`;
+    const mimeType = extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
+    await this.storage.putObject(objectKey, file.buffer, mimeType);
+    try {
+      const document = this.withAvatarObjectKey(current.document, objectKey);
+      const result = await this.repository.saveDocument(
+        userId,
+        id,
+        baseVersion,
+        randomUUID(),
+        document,
+      );
+      if (result.result === 'not-found') throw this.notFound();
+      if (result.result === 'conflict') throw this.conflict();
+    } catch (error: unknown) {
+      await this.storage.deleteObject(objectKey).catch(() => undefined);
+      throw error;
+    }
+    if (previousKey) await this.storage.deleteObject(previousKey).catch(() => undefined);
+    return this.get(userId, id);
+  }
+
+  async removeAvatar(userId: string, id: string, baseVersion: number): Promise<ResumeDetail> {
+    const current = await this.get(userId, id);
+    if (current.version !== baseVersion) throw this.conflict();
+    const previousKey = this.avatarObjectKey(current.document);
+    if (!previousKey) return current;
+    const result = await this.repository.saveDocument(
+      userId,
+      id,
+      baseVersion,
+      randomUUID(),
+      this.withAvatarObjectKey(current.document, null),
+    );
+    if (result.result === 'not-found') throw this.notFound();
+    if (result.result === 'conflict') throw this.conflict();
+    await this.storage.deleteObject(previousKey).catch(() => undefined);
+    return this.get(userId, id);
+  }
+
   async delete(userId: string, id: string): Promise<{ message: string }> {
+    const current = await this.get(userId, id);
     if (!(await this.repository.softDelete(userId, id))) throw this.notFound();
+    const avatarObjectKey = this.avatarObjectKey(current.document);
+    if (avatarObjectKey) await this.storage.deleteObject(avatarObjectKey).catch(() => undefined);
     return { message: '简历已删除。' };
   }
 
@@ -521,6 +621,7 @@ export class ResumesService {
           phone: profile?.phone ?? null,
           location: profile?.location ?? null,
           website: profile?.website ?? null,
+          avatarObjectKey: null,
         },
       },
       {
@@ -670,6 +771,30 @@ export class ResumesService {
       sections,
       theme,
     });
+  }
+
+  private avatarObjectKey(document: ResumeDocument): string | null {
+    const basic = document.sections.find((section) => section.type === 'basic');
+    return basic?.type === 'basic' ? (basic.content.avatarObjectKey ?? null) : null;
+  }
+
+  private withAvatarObjectKey(document: ResumeDocument, avatarObjectKey: string | null) {
+    const next = structuredClone(document);
+    const basic = next.sections.find((section) => section.type === 'basic');
+    if (basic?.type === 'basic') basic.content.avatarObjectKey = avatarObjectKey;
+    return ResumeDocumentSchema.parse(next);
+  }
+
+  private avatarExtension(buffer: Buffer): 'jpg' | 'png' | 'webp' | null {
+    if (buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) return 'jpg';
+    if (buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])))
+      return 'png';
+    if (
+      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+    )
+      return 'webp';
+    return null;
   }
 
   private renewSectionIds(section: ResumeSection): ResumeSection {

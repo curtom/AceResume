@@ -301,6 +301,7 @@ export const ResumeSummarySchema = z.object({
 export const ResumeDetailSchema = ResumeSummarySchema.extend({
   document: ResumeDocumentSchema,
   template: TemplateDefinitionSchema,
+  avatarUrl: z.string().url().nullable(),
 });
 const resumeName = z.string().trim().min(1).max(120);
 const resumeTargetRole = nullableText(120);

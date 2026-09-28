@@ -39,6 +39,7 @@ onMounted(async () => {
       class="full-preview"
       :document="resume.document"
       :template="resume.template"
+      :avatar-url="resume.avatarUrl"
       @diagnostics="diagnostics = $event"
     />
   </main>

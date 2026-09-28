@@ -5,7 +5,11 @@ import { renderResume } from '@aceresume/template-engine';
 import fontUrl from '@aceresume/template-engine/assets/NotoSansSC-Variable.ttf?url';
 import type { RenderDiagnostics } from '@aceresume/contracts';
 
-const props = defineProps<{ document: ResumeDocument; template?: TemplateDefinition }>();
+const props = defineProps<{
+  document: ResumeDocument;
+  template?: TemplateDefinition;
+  avatarUrl?: string | null;
+}>();
 const emit = defineEmits<{ diagnostics: [value: RenderDiagnostics] }>();
 const instanceId = globalThis.crypto.randomUUID();
 const html = computed(() =>
@@ -14,6 +18,7 @@ const html = computed(() =>
     ...(props.template ? { template: props.template } : {}),
     mode: 'screen',
     fontUrl,
+    ...(props.avatarUrl ? { avatarUrl: props.avatarUrl } : {}),
     instanceId,
   }),
 );

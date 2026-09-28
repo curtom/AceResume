@@ -51,4 +51,18 @@ describe('classic single template', () => {
       expect(html).toContain('document.fonts.ready');
     }
   });
+
+  it('merges target and avatar into basic information and keeps entry headings on one row', () => {
+    const html = renderResume({
+      resume: structuredClone(SAMPLE_RESUME_DOCUMENT),
+      mode: 'screen',
+      avatarUrl: 'data:image/png;base64,iVBORw0KGgo=',
+    });
+    expect(html).toContain('class="resume-avatar"');
+    expect(html).toContain('求职意向 · 前端开发工程师');
+    expect(html).toContain('<strong>远山大学</strong><span>计算机科学与技术 · 本科</span>');
+    expect(html).toContain('<strong>校园活动管理平台</strong><span>前端负责人</span>');
+    expect(html).not.toContain('Vue 3');
+    expect(html).not.toContain('技能清单');
+  });
 });
