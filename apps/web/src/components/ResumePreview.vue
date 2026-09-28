@@ -5,18 +5,23 @@ import { renderResume } from '@aceresume/template-engine';
 import fontUrl from '@aceresume/template-engine/assets/NotoSansSC-Variable.ttf?url';
 import type { RenderDiagnostics } from '@aceresume/contracts';
 
-const props = defineProps<{
-  document: ResumeDocument;
-  template?: TemplateDefinition;
-  avatarUrl?: string | null;
-}>();
+const props = withDefaults(
+  defineProps<{
+    document: ResumeDocument;
+    template?: TemplateDefinition | undefined;
+    avatarUrl?: string | null | undefined;
+    mode?: 'screen' | 'print';
+    isScrollEnabled?: boolean;
+  }>(),
+  { template: undefined, avatarUrl: null, mode: 'screen', isScrollEnabled: true },
+);
 const emit = defineEmits<{ diagnostics: [value: RenderDiagnostics] }>();
 const instanceId = globalThis.crypto.randomUUID();
 const html = computed(() =>
   renderResume({
     resume: props.document,
     ...(props.template ? { template: props.template } : {}),
-    mode: 'screen',
+    mode: props.mode,
     fontUrl,
     ...(props.avatarUrl ? { avatarUrl: props.avatarUrl } : {}),
     instanceId,
@@ -39,7 +44,13 @@ onBeforeUnmount(() => globalThis.removeEventListener('message', receiveDiagnosti
 </script>
 
 <template>
-  <iframe class="resume-preview" title="简历实时预览" sandbox="allow-scripts" :srcdoc="html" />
+  <iframe
+    class="resume-preview"
+    title="简历实时预览"
+    sandbox="allow-scripts"
+    :scrolling="isScrollEnabled ? 'auto' : 'no'"
+    :srcdoc="html"
+  />
 </template>
 
 <style scoped>

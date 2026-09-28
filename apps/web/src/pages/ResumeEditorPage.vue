@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
-import { ResumeThemeSchema, type ResumeTheme } from '@aceresume/resume-schema';
+import { ResumeThemeSchema, type ResumeSection, type ResumeTheme } from '@aceresume/resume-schema';
 import type {
   AiTask,
   DocumentSummary,
@@ -62,6 +62,8 @@ const diagnostics = ref<RenderDiagnostics | null>(null);
 const exportJob = ref<ExportJob | null>(null);
 const exportError = ref<string | null>(null);
 const draggedIndex = ref<number | null>(null);
+const editingSectionId = ref<string | null>(null);
+const editingSectionTitle = ref('');
 let exportPollTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 let aiPollTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 watch(aiError, (value) => {
@@ -132,6 +134,30 @@ function dropSection(to: number): void {
 function selectSection(id: string): void {
   store.selectedSectionId = id;
   isFormCollapsed.value = false;
+}
+function canMoveSection(sectionId: string, direction: -1 | 1): boolean {
+  const sections = document.value?.sections.filter((section) => section.type !== 'target') ?? [];
+  const index = sections.findIndex((section) => section.id === sectionId);
+  return index >= 0 && index + direction >= 0 && index + direction < sections.length;
+}
+function toggleSection(section: ResumeSection): void {
+  store.updateSection({ ...section, isVisible: !section.isVisible });
+}
+function startRename(section: ResumeSection): void {
+  editingSectionId.value = section.id;
+  editingSectionTitle.value = section.title;
+}
+function finishRename(section: ResumeSection): void {
+  if (editingSectionId.value !== section.id) return;
+  const title = editingSectionTitle.value.trim();
+  if (title && title !== section.title) store.updateSection({ ...section, title });
+  editingSectionId.value = null;
+}
+function cancelRename(): void {
+  editingSectionId.value = null;
+}
+function blurRenameInput(event: globalThis.KeyboardEvent): void {
+  (event.currentTarget as globalThis.HTMLInputElement).blur();
 }
 function updateTarget(value: string): void {
   const section = targetSection.value;
@@ -395,22 +421,72 @@ onBeforeUnmount(() => {
         <p>CONTENT BLOCKS</p>
         <h2>简历模块</h2>
         <template v-for="(section, index) in document.sections" :key="section.id">
-          <button
+          <div
             v-if="section.type !== 'target'"
+            class="module-card"
             draggable="true"
             :class="{ active: store.selectedSectionId === section.id, hidden: !section.isVisible }"
             @dragstart="draggedIndex = index"
             @dragover.prevent
             @drop="dropSection(index)"
-            @click="selectSection(section.id)"
           >
-            <i>⠿</i><span>{{ section.title }}</span
-            ><small>{{ section.isVisible ? '显示' : '隐藏' }}</small>
-          </button>
+            <i class="module-dot" />
+            <div class="module-controls">
+              <button
+                type="button"
+                aria-label="前移模块"
+                :disabled="!canMoveSection(section.id, -1)"
+                @click.stop="store.moveSection(section.id, -1)"
+              >
+                ‹
+              </button>
+              <button
+                class="module-visibility"
+                type="button"
+                role="switch"
+                :aria-checked="section.isVisible"
+                :aria-label="section.isVisible ? '隐藏模块' : '显示模块'"
+                @click.stop="toggleSection(section)"
+              >
+                <i />
+              </button>
+              <button
+                type="button"
+                aria-label="后移模块"
+                :disabled="!canMoveSection(section.id, 1)"
+                @click.stop="store.moveSection(section.id, 1)"
+              >
+                ›
+              </button>
+            </div>
+            <div class="module-name-row">
+              <input
+                v-if="editingSectionId === section.id"
+                v-model="editingSectionTitle"
+                class="module-title-input"
+                maxlength="80"
+                aria-label="模块名称"
+                autofocus
+                @blur="finishRename(section)"
+                @keydown.enter.prevent="blurRenameInput"
+                @keydown.esc.prevent="cancelRename"
+              />
+              <button v-else class="module-select" type="button" @click="selectSection(section.id)">
+                {{ section.title }}
+              </button>
+              <button
+                v-if="editingSectionId !== section.id"
+                class="module-rename"
+                type="button"
+                aria-label="编辑模块名称"
+                @click.stop="startRename(section)"
+              >
+                ✎
+              </button>
+            </div>
+          </div>
         </template>
         <button class="custom-add" @click="store.addCustomSection">＋ 自定义模块</button>
-      </aside>
-      <section class="form-panel">
         <button
           class="drawer-handle"
           type="button"
@@ -419,6 +495,8 @@ onBeforeUnmount(() => {
         >
           {{ isFormCollapsed ? '展开编辑' : '收起编辑' }}
         </button>
+      </aside>
+      <section class="form-panel">
         <div v-if="selectedSection" class="form-header">
           <div>
             <p>EDIT SECTION</p>
@@ -434,17 +512,6 @@ onBeforeUnmount(() => {
             >
               ✦ AI 辅助
             </button>
-            <a-switch
-              :checked="selectedSection.isVisible"
-              checked-children="显示"
-              un-checked-children="隐藏"
-              @change="
-                (checked: boolean) =>
-                  store.updateSection({ ...selectedSection!, isVisible: checked })
-              "
-            />
-            <button @click="store.moveSection(selectedSection.id, -1)">↑</button
-            ><button @click="store.moveSection(selectedSection.id, 1)">↓</button>
           </div>
         </div>
         <ResumeSectionEditor
@@ -906,72 +973,185 @@ onBeforeUnmount(() => {
   font-weight: 800;
   letter-spacing: 0.17em;
 }
-.sections-panel > button {
-  min-width: 6.6rem;
-  height: 4.7rem;
-  display: grid;
-  grid-template-columns: auto 1fr;
+.module-card {
+  position: relative;
+  flex: 0 0 7.4rem;
+  height: 5rem;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.55rem;
-  margin: 0;
-  padding: 0.65rem;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.5rem 0.65rem;
   border: 1px solid #e3e7ed;
-  border-radius: 0.7rem;
+  border-radius: 0.85rem;
   background: #fff;
   color: #657083;
   text-align: center;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    opacity 0.18s ease;
 }
-.sections-panel > button.active {
+.module-card.active {
   border-color: #b8d1fb;
   background: #f1f6ff;
   box-shadow: inset 0 -3px #3b82f6;
   color: #3176df;
 }
-.sections-panel > button.hidden {
+.module-card.hidden {
   opacity: 0.55;
 }
-.sections-panel small {
-  grid-column: 1 / -1;
-  font-size: 0.65rem;
+.module-dot {
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 50%;
+  background: #d4dae3;
+}
+.module-card.active .module-dot {
+  background: #9abfff;
+}
+.module-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 1.45rem;
+  margin-top: -0.2rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+.module-card:hover .module-controls,
+.module-card:focus-within .module-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+.module-card:hover .module-dot,
+.module-card:focus-within .module-dot {
+  display: none;
+}
+.module-controls > button,
+.module-rename,
+.module-select {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+.module-controls > button:not(.module-visibility) {
+  width: 1.45rem;
+  height: 1.45rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #dfe4ec;
+  border-radius: 50%;
+  background: #fff;
+  color: #788398;
+  font-size: 1rem;
+  line-height: 1;
+}
+.module-controls > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+.module-controls .module-visibility {
+  position: relative;
+  width: 2.35rem;
+  height: 1.3rem;
+  padding: 0;
+  border-radius: 999px;
+  background: #cbd2dc;
+  transition: background 0.18s ease;
+}
+.module-controls .module-visibility[aria-checked='true'] {
+  background: #3b82f6;
+}
+.module-visibility i {
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(27, 42, 66, 0.2);
+  transition: transform 0.18s ease;
+}
+.module-visibility[aria-checked='true'] i {
+  transform: translateX(1.05rem);
+}
+.module-name-row {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+.module-select {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.15rem 0;
+  font-size: 0.84rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.module-rename {
+  flex: 0 0 1.3rem;
+  height: 1.3rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #dfe4ec;
+  border-radius: 0.35rem;
+  background: #fff;
+  color: #8190a7;
+  font-size: 0.72rem;
+}
+.module-title-input {
+  width: 100%;
+  min-width: 0;
+  height: 1.8rem;
+  padding: 0 0.35rem;
+  border: 1px solid #78a8f8;
+  border-radius: 0.35rem;
+  outline: none;
+  color: #244f9c;
+  text-align: center;
 }
 .sections-panel .custom-add {
+  flex: 0 0 7.4rem;
+  height: 5rem;
   margin: 0;
+  padding: 0.65rem;
   border: 1px dashed #aab7ca;
+  border-radius: 0.85rem;
+  background: #fff;
+  color: #55647a;
   text-align: center;
 }
 .form-panel {
-  position: relative;
   grid-area: form;
   overflow: auto;
   padding: 2rem;
   background: #fff;
 }
 .form-collapsed .form-panel {
-  overflow: visible;
-  padding: 0;
-}
-.form-collapsed .form-panel > :not(.drawer-handle) {
   display: none;
 }
 .drawer-handle {
-  position: sticky;
-  z-index: 3;
-  top: 0;
-  float: right;
-  margin: -2rem 0 0;
-  padding: 0.4rem 0.85rem;
+  flex: 0 0 auto;
+  align-self: flex-end;
+  margin: 0 0 0 auto;
+  padding: 0.45rem 0.9rem;
   border: 1px solid #dbe1e9;
-  border-radius: 0 0 0.5rem 0.5rem;
+  border-radius: 0.5rem;
   background: #fff;
   color: #647087;
   font-size: 0.68rem;
-}
-.form-collapsed .drawer-handle {
-  position: absolute;
-  top: -2rem;
-  right: 2rem;
-  margin: 0;
-  border-radius: 0.5rem 0.5rem 0 0;
+  white-space: nowrap;
 }
 .form-header {
   display: flex;
@@ -1347,8 +1527,9 @@ onBeforeUnmount(() => {
   .sections-panel {
     padding-inline: 1rem;
   }
-  .sections-panel > button {
-    min-width: 6rem;
+  .module-card,
+  .sections-panel .custom-add {
+    flex-basis: 6.7rem;
   }
 }
 </style>

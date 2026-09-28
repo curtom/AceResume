@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('creates, edits and automatically saves the latest resume', async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   await page.setExtraHTTPHeaders({
     'x-forwarded-for': '2001:db8:' + Date.now().toString(16).slice(-4) + '::1',
   });
@@ -21,6 +21,11 @@ test('creates, edits and automatically saves the latest resume', async ({ page }
   await dialog.getByRole('button', { name: '创建并编辑' }).click();
 
   await expect(page.getByRole('button', { name: /基本信息/ })).toBeVisible();
+  const drawerHandle = page.getByRole('button', { name: '收起编辑' });
+  await expect(drawerHandle).toHaveCSS('position', 'static');
+  await drawerHandle.click();
+  await expect(page.getByRole('button', { name: '展开编辑' })).toBeVisible();
+  await page.getByRole('button', { name: '展开编辑' }).click();
   await expect(page.getByRole('button', { name: /^求职意向/ })).toHaveCount(0);
   await expect(page.getByLabel('求职意向')).toHaveValue('前端开发工程师');
   await page.getByLabel('姓名').fill('林知远');
@@ -40,6 +45,20 @@ test('creates, edits and automatically saves the latest resume', async ({ page }
   await page.getByRole('button', { name: '移除头像' }).click();
   await expect(page.getByText('头像已移除。')).toBeVisible();
   await expect(preview.locator('.resume-avatar')).toHaveCount(0);
+
+  const educationCard = page.locator('.module-card').filter({
+    has: page.getByRole('button', { name: '教育经历', exact: true }),
+  });
+  await educationCard.hover();
+  const educationVisibility = educationCard.getByRole('switch');
+  await educationVisibility.click();
+  await expect(educationVisibility).toHaveAttribute('aria-checked', 'false');
+  await expect(preview.getByRole('heading', { name: '教育经历' })).toHaveCount(0);
+  await educationVisibility.click();
+  await expect(educationVisibility).toHaveAttribute('aria-checked', 'true');
+  await educationCard.getByRole('button', { name: '后移模块' }).click();
+  await expect(page.locator('.module-card .module-select').nth(2)).toHaveText('教育经历');
+  await educationCard.getByRole('button', { name: '前移模块' }).click();
 
   await page.getByRole('button', { name: /教育经历/ }).click();
   await page.getByRole('button', { name: '＋ 添加条目' }).click();
@@ -74,4 +93,15 @@ test('creates, edits and automatically saves the latest resume', async ({ page }
   await richText.fill('注重可验证的成果与清晰表达。');
   await expect(page.getByText('已自动保存')).toBeVisible({ timeout: 8_000 });
   await expect(preview.getByText('注重可验证的成果与清晰表达。')).toBeVisible();
+  const summaryIndex = (
+    await page.locator('.module-card .module-select').allTextContents()
+  ).indexOf('自我评价');
+  expect(summaryIndex).toBeGreaterThanOrEqual(0);
+  const summaryCard = page.locator('.module-card').nth(summaryIndex);
+  await summaryCard.hover();
+  await summaryCard.getByRole('button', { name: '编辑模块名称' }).click();
+  await summaryCard.getByLabel('模块名称').fill('个人总结');
+  await summaryCard.getByLabel('模块名称').press('Enter');
+  await expect(page.getByRole('button', { name: '个人总结', exact: true })).toBeVisible();
+  await expect(preview.getByRole('heading', { name: '个人总结' })).toBeVisible();
 });

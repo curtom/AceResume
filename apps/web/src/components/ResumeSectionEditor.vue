@@ -29,12 +29,6 @@ function commit(change: (section: ResumeSection) => void): void {
   const parsed = ResumeSectionSchema.safeParse(next);
   if (parsed.success) emit('update', parsed.data);
 }
-function setTitle(value: string): void {
-  if (value.trim())
-    commit((section) => {
-      section.title = value;
-    });
-}
 function setBasic(
   field: 'fullName' | 'email' | 'phone' | 'location' | 'website',
   value: string,
@@ -154,16 +148,8 @@ function moveEntry(index: number, direction: -1 | 1): void {
 
 <template>
   <section class="section-editor">
-    <div class="section-title">
-      <label
-        ><span>模块标题</span
-        ><a-input :value="section.title" @change="setTitle($event.target.value)"
-      /></label>
-      <a-popconfirm
-        v-if="section.type === 'custom'"
-        title="删除这个自定义模块？"
-        @confirm="emit('remove')"
-      >
+    <div v-if="section.type === 'custom'" class="section-title">
+      <a-popconfirm title="删除这个自定义模块？" @confirm="emit('remove')">
         <button class="danger-link" type="button">删除模块</button>
       </a-popconfirm>
     </div>
@@ -411,13 +397,10 @@ function moveEntry(index: number, direction: -1 | 1): void {
 .section-title {
   display: flex;
   align-items: end;
-  justify-content: space-between;
+  justify-content: end;
   gap: 1rem;
   border-bottom: 1px solid #e1e5ec;
   padding-bottom: 1rem;
-}
-.section-title label {
-  flex: 1;
 }
 label {
   display: grid;

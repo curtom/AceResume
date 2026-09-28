@@ -67,12 +67,18 @@ onMounted(async () => {
       </section>
       <a-modal
         :open="Boolean(selected)"
-        width="820px"
+        width="900px"
+        centered
         :title="selected?.name"
         :footer="null"
         @cancel="selected = null"
       >
-        <TemplatePreviewCard v-if="selected" class="modal-preview" :template="selected" />
+        <TemplatePreviewCard
+          v-if="selected"
+          class="modal-preview"
+          :template="selected"
+          mode="dialog"
+        />
         <RouterLink
           v-if="selected"
           class="modal-use"
@@ -182,7 +188,7 @@ onMounted(async () => {
   text-decoration: none;
 }
 .modal-preview {
-  height: 38rem;
+  width: 100%;
 }
 .modal-use {
   display: block;
