@@ -79,6 +79,25 @@ test('creates, edits and automatically saves the latest resume', async ({ page }
   await page.getByRole('button', { name: /项目经历/ }).click();
   await page.getByRole('button', { name: '＋ 添加条目' }).click();
   await expect(page.getByText(/技术栈/)).toHaveCount(0);
+  const projectStartPicker = page.locator('.start-date-field .month-picker');
+  const projectEndPicker = page.locator('.end-date-control .month-picker');
+  const currentCheckbox = page.locator('.end-date-control .ant-checkbox-wrapper');
+  const [startBox, endBox, currentBox] = await Promise.all([
+    projectStartPicker.boundingBox(),
+    projectEndPicker.boundingBox(),
+    currentCheckbox.boundingBox(),
+  ]);
+  expect(startBox).not.toBeNull();
+  expect(endBox).not.toBeNull();
+  expect(currentBox).not.toBeNull();
+  expect(Math.abs(startBox!.width - endBox!.width)).toBeLessThan(1);
+  expect(startBox!.width).toBeLessThanOrEqual(320);
+  expect(Math.abs(startBox!.y - endBox!.y)).toBeLessThan(1);
+  await expect(currentCheckbox).toHaveCSS('display', 'inline-flex');
+  expect(currentBox!.height).toBeLessThanOrEqual(endBox!.height);
+  expect(
+    Math.abs(endBox!.y + endBox!.height / 2 - (currentBox!.y + currentBox!.height / 2)),
+  ).toBeLessThan(2);
 
   await page.getByRole('button', { name: /专业技能/ }).click();
   await page.getByRole('button', { name: '＋ 添加条目' }).click();

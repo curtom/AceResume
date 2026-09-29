@@ -343,38 +343,40 @@ function moveEntry(index: number, direction: -1 | 1): void {
             /></label>
           </template>
           <template v-if="'startDate' in entry">
-            <label
-              ><span>开始时间</span
-              ><a-date-picker
-                :value="entry.startDate"
-                class="month-picker"
-                picker="month"
-                format="YYYY年MM月"
-                value-format="YYYY-MM"
-                :allow-clear="false"
-                placeholder="选择开始月份"
-                @change="updateEntry(index, 'startDate', $event)"
-            /></label>
-            <label class="end-date-field"
-              ><span>结束时间</span>
-              <div class="end-date-control">
-                <a-date-picker
-                  :disabled="entry.isCurrent"
-                  :value="entry.endDate"
+            <div class="date-range-fields">
+              <label class="start-date-field"
+                ><span>开始时间</span
+                ><a-date-picker
+                  :value="entry.startDate"
                   class="month-picker"
                   picker="month"
                   format="YYYY年MM月"
                   value-format="YYYY-MM"
-                  placeholder="选择结束月份"
-                  @change="updateEntry(index, 'endDate', $event || null)"
-                />
-                <a-checkbox
-                  :checked="entry.isCurrent"
-                  @change="updateEntry(index, 'isCurrent', $event.target.checked)"
-                  >至今</a-checkbox
-                >
-              </div></label
-            >
+                  :allow-clear="false"
+                  placeholder="选择开始月份"
+                  @change="updateEntry(index, 'startDate', $event)"
+              /></label>
+              <label class="end-date-field"
+                ><span>结束时间</span>
+                <div class="end-date-control">
+                  <a-date-picker
+                    :disabled="entry.isCurrent"
+                    :value="entry.endDate"
+                    class="month-picker"
+                    picker="month"
+                    format="YYYY年MM月"
+                    value-format="YYYY-MM"
+                    placeholder="选择结束月份"
+                    @change="updateEntry(index, 'endDate', $event || null)"
+                  />
+                  <a-checkbox
+                    :checked="entry.isCurrent"
+                    @change="updateEntry(index, 'isCurrent', $event.target.checked)"
+                    >至今</a-checkbox
+                  >
+                </div></label
+              >
+            </div>
           </template>
           <label v-if="'description' in entry" class="wide"
             ><span>内容描述</span
@@ -416,14 +418,32 @@ label {
 .wide {
   grid-column: 1 / -1;
 }
+.date-range-fields {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  align-items: end;
+  gap: 0.85rem;
+}
 .month-picker {
-  width: 100%;
+  width: 20rem;
+  max-width: 100%;
 }
 .end-date-control {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+.end-date-control .month-picker {
+  flex: 0 1 20rem;
+}
+.end-date-control :deep(.ant-checkbox-wrapper) {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  white-space: nowrap;
 }
 .avatar-field {
   display: grid;
@@ -518,6 +538,9 @@ label {
   }
   .wide {
     grid-column: auto;
+  }
+  .date-range-fields {
+    grid-template-columns: 1fr;
   }
 }
 </style>
