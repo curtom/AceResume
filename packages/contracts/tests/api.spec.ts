@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ApiErrorSchema,
+  CreateAiTaskRequestSchema,
   EducationContentSchema,
   ExperienceContentSchema,
   HealthDataSchema,
@@ -121,6 +122,26 @@ describe('API contracts', () => {
         proficiency: null,
         description: description + '超',
       }).success,
+    ).toBe(false);
+  });
+
+  it('requires a supported AI output content type', () => {
+    const request = {
+      resumeId: '0ad7a3a3-cb36-4bb0-9f44-46dd677bc199',
+      sectionId: '6fbb3d44-669c-4bb3-8a2c-358949c586af',
+      contentType: 'project',
+      baseVersion: 1,
+      instruction: '突出具体行动与结果',
+      jobDescription: null,
+      sources: {
+        documentIds: ['6e378084-7b7d-465f-a2f7-ac49d2d89602'],
+        profileEntryIds: [],
+      },
+      consentToThirdParty: true,
+    };
+    expect(CreateAiTaskRequestSchema.safeParse(request).success).toBe(true);
+    expect(
+      CreateAiTaskRequestSchema.safeParse({ ...request, contentType: 'summary' }).success,
     ).toBe(false);
   });
 });

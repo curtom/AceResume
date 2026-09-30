@@ -558,6 +558,7 @@ export type DocumentParseJob = z.infer<typeof DocumentParseJobSchema>;
 export type StorageCleanupJob = z.infer<typeof StorageCleanupJobSchema>;
 
 export const AiSupportStatusSchema = z.enum(['supported', 'conflict', 'unsupported']);
+export const AiContentTypeSchema = z.enum(['project', 'experience', 'campus']);
 export const AiTaskStatusSchema = z.enum([
   'queued',
   'processing',
@@ -598,6 +599,7 @@ export const AiCitationSchema = z
 export const ResumeSuggestionSchema = z
   .object({
     id: z.string().uuid(),
+    advice: z.string().trim().min(1).max(2_000).default('基于事实来源优化内容表达与结构。'),
     text: z.string().trim().min(1).max(5_000),
     beforeText: z.string().max(5_000),
     citations: z.array(AiCitationSchema).min(1).max(20),
@@ -614,6 +616,7 @@ export const CreateAiTaskRequestSchema = z
   .object({
     resumeId: z.string().uuid(),
     sectionId: z.string().uuid(),
+    contentType: AiContentTypeSchema,
     baseVersion: z.number().int().positive(),
     instruction: z.string().trim().min(3).max(2_000),
     jobDescription: z.string().trim().max(10_000).nullable().default(null),
@@ -667,6 +670,7 @@ export const AiGenerateJobSchema = z.object({ taskId: z.string().uuid() }).stric
 export const DocumentEmbedJobSchema = z.object({ documentId: z.string().uuid() }).strict();
 
 export type AiSupportStatus = z.infer<typeof AiSupportStatusSchema>;
+export type AiContentType = z.infer<typeof AiContentTypeSchema>;
 export type AiTaskStatus = z.infer<typeof AiTaskStatusSchema>;
 export type AiSourceSelection = z.infer<typeof AiSourceSelectionSchema>;
 export type AiResumePatch = z.infer<typeof AiResumePatchSchema>;

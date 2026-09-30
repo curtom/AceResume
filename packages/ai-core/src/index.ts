@@ -55,6 +55,7 @@ export const ModelSuggestionOutputSchema = z
       .array(
         z
           .object({
+            advice: z.string().trim().min(1).max(2_000),
             text: z.string().trim().min(1).max(5_000),
             citationIds: z.array(z.string().min(1)).min(1).max(20),
           })
@@ -65,6 +66,27 @@ export const ModelSuggestionOutputSchema = z
   })
   .strict();
 export type ModelSuggestionOutput = z.infer<typeof ModelSuggestionOutputSchema>;
+
+export type AiContentType = 'project' | 'experience' | 'campus';
+
+const CONTENT_TYPE_PATTERNS: Record<AiContentType, RegExp> = {
+  project: /项目|课程设计|课设|作品|平台|系统|产品/,
+  experience: /实习|工作经历|任职|就职|公司|企业|岗位|职位|工作职责/,
+  campus: /校园|校内|学生会|社团|协会|志愿|班委|活动|竞赛|比赛/,
+};
+
+export function isRelevantToContentType(text: string, contentType: AiContentType): boolean {
+  return CONTENT_TYPE_PATTERNS[contentType].test(text);
+}
+
+export function formatAsBulletPoints(text: string): string {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^(?:[-*•]|\d+[.)、])\s*/, ''))
+    .filter(Boolean)
+    .map((line) => '• ' + line)
+    .join('\n');
+}
 
 const INJECTION_PATTERN =
   /忽略(?:之前|以上|系统)|ignore (?:all |the )?(?:previous|system)|system prompt|开发者指令|执行(?:代码|SQL)|泄露(?:密钥|提示词)/i;
@@ -118,10 +140,19 @@ export class MockModelProvider implements ChatModelProvider {
     const second = usable[1];
     const suggestions = [
       {
-        text: first.text.slice(0, 420),
+        advice: '按 STAR 结构突出背景、任务、行动与材料中已有的结果。',
+        text: formatAsBulletPoints(first.text.slice(0, 418)),
         citationIds: [first.id],
       },
-      ...(second ? [{ text: second.text.slice(0, 420), citationIds: [second.id] }] : []),
+      ...(second
+        ? [
+            {
+              advice: '补充另一项有事实依据的行动或结果，使内容更具体。',
+              text: formatAsBulletPoints(second.text.slice(0, 418)),
+              citationIds: [second.id],
+            },
+          ]
+        : []),
     ];
     return input.schema.parse({ suggestions });
   }

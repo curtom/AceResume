@@ -13,17 +13,8 @@ import { QueueService } from '../jobs/queue.service.js';
 import { ResumesService } from '../resumes/resumes.service.js';
 import { AiRepository } from './ai.repository.js';
 
-const DEFAULT_PROMPT_VERSION = 'resume-writing-v1';
-const SUPPORTED_SECTIONS = new Set([
-  'education',
-  'experience',
-  'project',
-  'campus',
-  'skill',
-  'award',
-  'summary',
-  'custom',
-]);
+const DEFAULT_PROMPT_VERSION = 'resume-writing-v2';
+const SUPPORTED_SECTIONS = new Set(['experience', 'project', 'campus']);
 
 @Injectable()
 export class AiService {
@@ -48,6 +39,12 @@ export class AiService {
         'VALIDATION_FAILED',
         HttpStatus.BAD_REQUEST,
         '当前模块暂不支持 AI 写作建议。',
+      );
+    if (section.type !== input.contentType)
+      throw new AppException(
+        'VALIDATION_FAILED',
+        HttpStatus.BAD_REQUEST,
+        '输出内容类型与目标简历模块不一致。',
       );
     if (
       !(await this.repository.sourcesBelongToUser(

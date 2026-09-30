@@ -8,6 +8,8 @@ import {
   detectSourceConflict,
   decryptSecret,
   encryptSecret,
+  formatAsBulletPoints,
+  isRelevantToContentType,
   unsupportedEntities,
   unsupportedNumbers,
 } from '../src/index.js';
@@ -58,6 +60,21 @@ describe('AI guardrails', () => {
       contexts: [{ id: 'source-1', label: '材料', text: '负责 Vue 3 项目开发。' }],
     });
     expect(output.suggestions[0]?.citationIds).toEqual(['source-1']);
+    expect(output.suggestions[0]?.advice).toContain('STAR');
+    expect(output.suggestions[0]?.text).toMatch(/^• /);
+  });
+
+  it('keeps only facts related to the selected output content type', () => {
+    expect(isRelevantToContentType('项目经历：校园交易平台', 'project')).toBe(true);
+    expect(isRelevantToContentType('在示例公司担任前端实习生', 'experience')).toBe(true);
+    expect(isRelevantToContentType('学生会组织校园招聘活动', 'campus')).toBe(true);
+    expect(isRelevantToContentType('学生会组织校园招聘活动', 'project')).toBe(false);
+  });
+
+  it('normalizes generated content into visible bullet points', () => {
+    expect(formatAsBulletPoints('背景与任务\n- 采取行动\n2. 获得材料中已有的结果')).toBe(
+      '• 背景与任务\n• 采取行动\n• 获得材料中已有的结果',
+    );
   });
 
   it('creates deterministic vectors with the fixed dimension', async () => {

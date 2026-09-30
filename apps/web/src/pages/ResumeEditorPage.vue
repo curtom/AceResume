@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import { ResumeThemeSchema, type ResumeSection, type ResumeTheme } from '@aceresume/resume-schema';
 import type {
+  AiContentType,
   AiTask,
   DocumentSummary,
   ExportJob,
@@ -53,6 +54,7 @@ const selectedProfileEntryIds = ref<string[]>([]);
 const aiInstruction = ref('突出与目标岗位相关的职责、行动和结果，表达专业简洁。');
 const aiJobDescription = ref('');
 const aiConsent = ref(false);
+const aiContentType = ref<AiContentType>('project');
 const editedSuggestions = ref<Record<string, string>>({});
 const isCreatingExport = ref(false);
 const isAvatarBusy = ref(false);
@@ -82,11 +84,19 @@ const profileTypeLabel: Record<ProfileEntryType, string> = {
   experience: '实习 / 工作',
   skill: '技能',
 };
+const aiContentTypeLabel: Record<AiContentType, string> = {
+  project: '项目经历',
+  experience: '工作 / 实习经历',
+  campus: '校园经历',
+};
+const visibleAiProfileEntries = computed(() =>
+  aiProfileEntries.value.filter((entry) => entry.type === aiContentType.value),
+);
 const canUseAi = computed(() => {
   const section = selectedSection.value;
-  if (!section || ['basic', 'target'].includes(section.type)) return false;
+  if (!section || !['project', 'experience', 'campus'].includes(section.type)) return false;
   if ('entries' in section.content) return section.content.entries.length > 0;
-  return true;
+  return false;
 });
 const saveLabel = computed(
   () =>
@@ -252,13 +262,15 @@ function toggleSource(ids: string[], id: string, checked: boolean): string[] {
 }
 async function openAi(): Promise<void> {
   if (!canUseAi.value) return;
+  aiContentType.value = selectedSection.value!.type as AiContentType;
+  selectedProfileEntryIds.value = [];
   aiError.value = null;
   aiTask.value = null;
   editedSuggestions.value = {};
   isAiOpen.value = true;
   isLoadingAiSources.value = true;
   try {
-    const profileTypes: ProfileEntryType[] = ['education', 'project', 'experience', 'skill'];
+    const profileTypes: ProfileEntryType[] = ['project', 'experience'];
     const [documentsPage, ...entryPages] = await Promise.all([
       documentApi.listDocuments(),
       ...profileTypes.map((type) => profileApi.listEntries(type)),
@@ -270,6 +282,13 @@ async function openAi(): Promise<void> {
   } finally {
     isLoadingAiSources.value = false;
   }
+}
+function changeAiContentType(value: unknown): void {
+  if (value !== 'project' && value !== 'experience' && value !== 'campus') return;
+  aiContentType.value = value;
+  selectedProfileEntryIds.value = [];
+  aiTask.value = null;
+  editedSuggestions.value = {};
 }
 async function pollAiTask(id: string, attempt = 0): Promise<void> {
   try {
@@ -298,7 +317,7 @@ async function pollAiTask(id: string, attempt = 0): Promise<void> {
   }
 }
 async function generateAi(): Promise<void> {
-  if (!detail.value || !selectedSection.value) return;
+  if (!detail.value) return;
   aiError.value = null;
   if (!selectedDocumentIds.value.length && !selectedProfileEntryIds.value.length) {
     aiError.value = '请至少选择一项事实来源。';
@@ -316,9 +335,16 @@ async function generateAi(): Promise<void> {
       isGeneratingAi.value = false;
       return;
     }
+    const target = document.value?.sections.find((section) => section.type === aiContentType.value);
+    if (!target || !('entries' in target.content) || target.content.entries.length === 0) {
+      aiError.value = `请先在${aiContentTypeLabel[aiContentType.value]}中添加至少一条内容。`;
+      isGeneratingAi.value = false;
+      return;
+    }
     aiTask.value = await aiApi.createTask({
       resumeId: store.detail.id,
-      sectionId: selectedSection.value.id,
+      sectionId: target.id,
+      contentType: aiContentType.value,
       baseVersion: store.detail.version,
       instruction: aiInstruction.value,
       jobDescription: aiJobDescription.value.trim() || null,
@@ -578,12 +604,29 @@ onBeforeUnmount(() => {
       <div class="ai-flow">
         <a-skeleton v-if="isLoadingAiSources" active :paragraph="{ rows: 8 }" />
         <template v-else>
-          <section class="ai-context">
+          <section class="ai-output-type">
             <div class="ai-section-title">
               <span>01</span>
+              <div><b>输出内容类型</b><small>只检索与所选经历类型相关的事实</small></div>
+            </div>
+            <a-radio-group
+              :value="aiContentType"
+              :disabled="isGeneratingAi"
+              button-style="solid"
+              class="ai-type-options"
+              @change="changeAiContentType($event.target.value)"
+            >
+              <a-radio-button value="project">项目经历</a-radio-button>
+              <a-radio-button value="experience">工作 / 实习</a-radio-button>
+              <a-radio-button value="campus">校园经历</a-radio-button>
+            </a-radio-group>
+          </section>
+          <section class="ai-context">
+            <div class="ai-section-title">
+              <span>02</span>
               <div><b>事实来源</b><small>只会检索你明确选择的资料</small></div>
             </div>
-            <div v-if="!aiDocuments.length && !aiProfileEntries.length" class="ai-empty">
+            <div v-if="!aiDocuments.length && !visibleAiProfileEntries.length" class="ai-empty">
               暂无可用来源，请先在个人资料或材料库补充事实。
             </div>
             <label v-for="item in aiDocuments" :key="item.id" class="source-option">
@@ -602,7 +645,7 @@ onBeforeUnmount(() => {
                 ><small>材料库 · {{ item.chunkCount }} 个片段</small></span
               >
             </label>
-            <label v-for="item in aiProfileEntries" :key="item.id" class="source-option">
+            <label v-for="item in visibleAiProfileEntries" :key="item.id" class="source-option">
               <a-checkbox
                 :checked="selectedProfileEntryIds.includes(item.id)"
                 @change="
@@ -621,7 +664,7 @@ onBeforeUnmount(() => {
           </section>
           <section class="ai-prompt">
             <div class="ai-section-title">
-              <span>02</span>
+              <span>03</span>
               <div><b>写作要求</b><small>岗位描述只影响表达，不会成为事实</small></div>
             </div>
             <label
@@ -657,7 +700,7 @@ onBeforeUnmount(() => {
           </section>
           <section v-if="aiTask?.suggestions.length" class="ai-results">
             <div class="result-heading">
-              <span>03 · 建议已生成</span><small>{{ aiTask.suggestions.length }} 条</small>
+              <span>04 · 建议已生成</span><small>{{ aiTask.suggestions.length }} 条</small>
             </div>
             <article
               v-for="(suggestion, index) in aiTask.suggestions"
@@ -679,7 +722,9 @@ onBeforeUnmount(() => {
               <div class="suggestion-diff">
                 <small>修改前</small>
                 <p>{{ suggestion.beforeText || '（当前为空）' }}</p>
-                <small>建议后</small>
+                <small>修改建议</small>
+                <p class="suggestion-advice">{{ suggestion.advice }}</p>
+                <small>建议成稿（STAR 分点）</small>
                 <a-textarea
                   v-model:value="editedSuggestions[suggestion.id]"
                   :rows="5"
@@ -1328,11 +1373,22 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 1.4rem;
 }
+.ai-output-type,
 .ai-context,
 .ai-prompt,
 .ai-results {
   display: grid;
   gap: 0.75rem;
+}
+.ai-type-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.ai-type-options :deep(.ant-radio-button-wrapper) {
+  height: auto;
+  padding: 0.55rem 0.35rem;
+  text-align: center;
+  white-space: normal;
 }
 .ai-section-title {
   display: flex;
@@ -1457,6 +1513,10 @@ onBeforeUnmount(() => {
   background: #f4f2ec;
   color: #69717e;
   line-height: 1.6;
+}
+.suggestion-diff .suggestion-advice {
+  background: #eef2ff;
+  color: #303d52;
 }
 .suggestion-card details {
   color: #173fbd;
