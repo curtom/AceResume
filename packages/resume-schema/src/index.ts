@@ -355,10 +355,15 @@ export const DEFAULT_RESUME_THEME: ResumeTheme = {
 };
 export const EMPTY_RICH_TEXT: RichTextDocument = { type: 'doc', content: [{ type: 'paragraph' }] };
 export function textToRichText(value: string | null | undefined): RichTextDocument {
-  return value?.trim()
-    ? {
-        type: 'doc',
-        content: [{ type: 'paragraph', content: [{ type: 'text', text: value.trim() }] }],
-      }
-    : structuredClone(EMPTY_RICH_TEXT);
+  if (!value?.trim()) return structuredClone(EMPTY_RICH_TEXT);
+  const content: RichTextNode[] = value
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => {
+      const text = line.trim();
+      return text
+        ? { type: 'paragraph', content: [{ type: 'text', text }] }
+        : { type: 'paragraph' };
+    });
+  return { type: 'doc', content };
 }

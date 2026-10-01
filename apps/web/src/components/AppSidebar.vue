@@ -48,9 +48,6 @@ async function signOut(): Promise<void> {
       </RouterLink>
     </nav>
     <div class="sidebar-bottom">
-      <button type="button" disabled title="后续阶段开放">
-        <span class="nav-icon">⚙</span><span>账号设置</span>
-      </button>
       <div class="user-card">
         <span class="avatar">{{ auth.user?.email.slice(0, 1).toUpperCase() }}</span>
         <div>
@@ -110,7 +107,6 @@ async function signOut(): Promise<void> {
   gap: 0.3rem;
 }
 .side-nav a,
-.side-nav button,
 .sidebar-bottom > button {
   display: grid;
   min-height: 3rem;
@@ -135,11 +131,6 @@ async function signOut(): Promise<void> {
   background: #193b55;
   box-shadow: 4px 4px 0 #ff6a4d;
   color: #fff;
-}
-.side-nav button:disabled,
-.sidebar-bottom > button:disabled {
-  cursor: not-allowed;
-  opacity: 0.48;
 }
 .nav-icon {
   font-size: 1.15rem;
@@ -215,7 +206,7 @@ async function signOut(): Promise<void> {
     margin-top: 3rem;
   }
   .side-nav a,
-  .side-nav button {
+  .sidebar-bottom > button {
     grid-template-columns: 1fr;
     padding: 0;
   }

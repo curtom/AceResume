@@ -1,7 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_RESUME_THEME, type ResumeDocument } from '@aceresume/resume-schema';
-import { BUILT_IN_TEMPLATES, SAMPLE_RESUME_DOCUMENT, renderResume } from '../src/index.js';
+import {
+  DEFAULT_RESUME_THEME,
+  textToRichText,
+  type ResumeDocument,
+} from '@aceresume/resume-schema';
+import {
+  BUILT_IN_TEMPLATES,
+  SAMPLE_RESUME_DOCUMENT,
+  renderResume,
+  renderRichText,
+} from '../src/index.js';
 
 describe('classic single template', () => {
   it('renders deterministically and escapes text', () => {
@@ -67,5 +76,20 @@ describe('classic single template', () => {
     expect(html).toContain('<strong>校园活动管理平台</strong><span>前端负责人</span>');
     expect(html).not.toContain('Vue 3');
     expect(html).not.toContain('技能清单');
+  });
+
+  it('preserves imported plain-text paragraphs in resume output', () => {
+    expect(renderRichText(textToRichText('第一段\n第二段'))).toBe('<p>第一段</p><p>第二段</p>');
+    expect(
+      renderRichText({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: '旧内容第一段\n旧内容第二段' }],
+          },
+        ],
+      }),
+    ).toBe('<p>旧内容第一段<br>旧内容第二段</p>');
   });
 });

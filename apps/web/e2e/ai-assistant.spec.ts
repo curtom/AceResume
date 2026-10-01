@@ -49,7 +49,7 @@ test('generates a cited suggestion and writes it only after user approval', asyn
   await expect(page.getByRole('radio', { name: '项目经历' })).toBeChecked();
   await page.locator('.source-option', { hasText: '项目事实.txt' }).click();
   await page.locator('.consent-row').click();
-  await page.getByRole('button', { name: /生成优化建议/ }).click();
+  await page.getByRole('button', { name: /生成目标经历/ }).click();
   await expect(page.getByText('04 · 项目经历生成结果')).toBeVisible({ timeout: 60_000 });
   const firstSuggestion = page.locator('.suggestion-card').first();
   await expect(firstSuggestion.getByText('依据充分')).toBeVisible();

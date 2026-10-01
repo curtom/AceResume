@@ -895,7 +895,7 @@ onBeforeUnmount(() => {
               <div><b>写作要求</b><small>岗位描述只影响表达，不会成为事实</small></div>
             </div>
             <label
-              ><span>你想怎么优化？</span
+              ><span>你想怎么撰写？</span
               ><a-textarea v-model:value="aiInstruction" :rows="4" :maxlength="2000" show-count
             /></label>
             <label
@@ -918,8 +918,8 @@ onBeforeUnmount(() => {
                   isGeneratingAi
                     ? '正在校验事实并生成…'
                     : aiTask
-                      ? '重新生成优化建议'
-                      : '生成优化建议'
+                      ? '重新生成目标经历'
+                      : '生成目标经历'
                 }}</span
               >
               <small v-if="aiTask">{{ aiTask.progress }}%</small>
@@ -1418,8 +1418,8 @@ onBeforeUnmount(() => {
 }
 .drawer-handle {
   flex: 0 0 auto;
-  align-self: flex-end;
-  margin: 0 0 0 auto;
+  align-self: flex-start;
+  margin: 0;
   padding: 0.45rem 0.9rem;
   border: 1px solid #dbe1e9;
   border-radius: 0.5rem;

@@ -177,7 +177,7 @@ function escapeHtml(value: string): string {
 function renderNode(node: RichTextNode): string {
   if (node.type === 'hardBreak') return '<br>';
   if (node.type === 'text') {
-    let value = escapeHtml(node.text);
+    let value = escapeHtml(node.text).replace(/\r\n?|\n/g, '<br>');
     for (const mark of node.marks ?? []) {
       if (mark.type === 'bold') value = `<strong>${value}</strong>`;
       else if (mark.type === 'italic') value = `<em>${value}</em>`;

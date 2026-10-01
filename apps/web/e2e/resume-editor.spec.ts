@@ -12,6 +12,7 @@ test('creates, edits and automatically saves the latest resume', async ({ page }
   await page.getByLabel('密码').fill(password);
   await page.getByRole('button', { name: '登录 / 创建账号' }).click();
   await expect(page.getByRole('heading', { name: /下一份机会/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: '账号设置' })).toHaveCount(0);
   await page.getByRole('link', { name: /我的简历/ }).click();
 
   await page.getByRole('button', { name: '新建简历' }).click();
@@ -23,6 +24,8 @@ test('creates, edits and automatically saves the latest resume', async ({ page }
   await expect(page.getByRole('button', { name: /基本信息/ })).toBeVisible();
   const drawerHandle = page.getByRole('button', { name: '收起编辑' });
   await expect(drawerHandle).toHaveCSS('position', 'static');
+  await expect(drawerHandle).toHaveCSS('align-self', 'flex-start');
+  await expect(drawerHandle).toHaveCSS('margin-left', '0px');
   await drawerHandle.click();
   await expect(page.getByRole('button', { name: '展开编辑' })).toBeVisible();
   await page.getByRole('button', { name: '展开编辑' }).click();
@@ -99,7 +102,7 @@ test('creates, edits and automatically saves the latest resume', async ({ page }
   expect(Math.abs(startBox!.width - endBox!.width)).toBeLessThan(1);
   expect(startBox!.width).toBeLessThanOrEqual(320);
   expect(Math.abs(startBox!.y - endBox!.y)).toBeLessThan(1);
-  await expect(currentCheckbox).toHaveCSS('display', 'inline-flex');
+  await expect(currentCheckbox).toHaveCSS('display', 'flex');
   expect(currentBox!.height).toBeLessThanOrEqual(endBox!.height);
   expect(
     Math.abs(endBox!.y + endBox!.height / 2 - (currentBox!.y + currentBox!.height / 2)),
