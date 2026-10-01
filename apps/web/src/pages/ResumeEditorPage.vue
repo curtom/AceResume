@@ -43,6 +43,7 @@ const isThemeOpen = ref(false);
 const isTemplateOpen = ref(false);
 const isExportOpen = ref(false);
 const isAiOpen = ref(false);
+const isAiExpanded = ref(false);
 const isLoadingAiSources = ref(false);
 const isGeneratingAi = ref(false);
 const aiError = ref<string | null>(null);
@@ -92,9 +93,22 @@ const aiContentTypeLabel: Record<AiContentType, string> = {
 const visibleAiProfileEntries = computed(() =>
   aiProfileEntries.value.filter((entry) => entry.type === aiContentType.value),
 );
+const aiDrawerWidth = computed(() => (isAiExpanded.value ? '50vw' : '430px'));
+const aiResizeButtonStyle = computed(() => ({
+  right: isAiExpanded.value ? 'calc(50vw - 17px)' : '413px',
+}));
+const aiResultContentType = computed<AiContentType | null>(() => {
+  const section = document.value?.sections.find((item) => item.id === aiTask.value?.sectionId);
+  return section && ['project', 'experience', 'campus'].includes(section.type)
+    ? (section.type as AiContentType)
+    : null;
+});
+const isAiSupportedSection = computed(() =>
+  ['project', 'experience', 'campus'].includes(selectedSection.value?.type ?? ''),
+);
 const canUseAi = computed(() => {
   const section = selectedSection.value;
-  if (!section || !['project', 'experience', 'campus'].includes(section.type)) return false;
+  if (!section || !isAiSupportedSection.value) return false;
   if ('entries' in section.content) return section.content.entries.length > 0;
   return false;
 });
@@ -262,11 +276,8 @@ function toggleSource(ids: string[], id: string, checked: boolean): string[] {
 }
 async function openAi(): Promise<void> {
   if (!canUseAi.value) return;
-  aiContentType.value = selectedSection.value!.type as AiContentType;
-  selectedProfileEntryIds.value = [];
+  if (!aiTask.value) aiContentType.value = selectedSection.value!.type as AiContentType;
   aiError.value = null;
-  aiTask.value = null;
-  editedSuggestions.value = {};
   isAiOpen.value = true;
   isLoadingAiSources.value = true;
   try {
@@ -287,8 +298,6 @@ function changeAiContentType(value: unknown): void {
   if (value !== 'project' && value !== 'experience' && value !== 'campus') return;
   aiContentType.value = value;
   selectedProfileEntryIds.value = [];
-  aiTask.value = null;
-  editedSuggestions.value = {};
 }
 async function pollAiTask(id: string, attempt = 0): Promise<void> {
   try {
@@ -530,6 +539,7 @@ onBeforeUnmount(() => {
           </div>
           <div class="section-controls">
             <button
+              v-if="isAiSupportedSection"
               class="ai-entry"
               type="button"
               :disabled="!canUseAi"
@@ -590,10 +600,21 @@ onBeforeUnmount(() => {
     >
     <a-drawer
       v-model:open="isAiOpen"
-      width="430"
+      :width="aiDrawerWidth"
       :closable="false"
       root-class-name="ai-assistant-drawer"
     >
+      <button
+        v-if="isAiOpen"
+        class="ai-drawer-resize"
+        type="button"
+        :style="aiResizeButtonStyle"
+        :aria-label="isAiExpanded ? '收回 AI 助手' : '展开 AI 助手'"
+        :title="isAiExpanded ? '收回' : '展开至半屏'"
+        @click="isAiExpanded = !isAiExpanded"
+      >
+        {{ isAiExpanded ? '→' : '←' }}
+      </button>
       <template #title>
         <div class="ai-drawer-title">
           <span>✦</span>
@@ -700,7 +721,12 @@ onBeforeUnmount(() => {
           </section>
           <section v-if="aiTask?.suggestions.length" class="ai-results">
             <div class="result-heading">
-              <span>04 · 建议已生成</span><small>{{ aiTask.suggestions.length }} 条</small>
+              <span
+                >04 ·
+                {{
+                  aiResultContentType ? aiContentTypeLabel[aiResultContentType] : ''
+                }}生成结果</span
+              ><small>{{ aiTask.suggestions.length }} 条</small>
             </div>
             <article
               v-for="(suggestion, index) in aiTask.suggestions"
@@ -720,11 +746,9 @@ onBeforeUnmount(() => {
                 </b>
               </header>
               <div class="suggestion-diff">
-                <small>修改前</small>
-                <p>{{ suggestion.beforeText || '（当前为空）' }}</p>
-                <small>修改建议</small>
+                <small>写作建议</small>
                 <p class="suggestion-advice">{{ suggestion.advice }}</p>
-                <small>建议成稿（STAR 分点）</small>
+                <small>生成内容（STAR 分点，可编辑）</small>
                 <a-textarea
                   v-model:value="editedSuggestions[suggestion.id]"
                   :rows="5"
@@ -1372,6 +1396,35 @@ onBeforeUnmount(() => {
 .ai-flow {
   display: grid;
   gap: 1.4rem;
+}
+.ai-drawer-resize {
+  position: fixed;
+  top: 50%;
+  z-index: 1100;
+  display: grid;
+  width: 34px;
+  height: 64px;
+  padding: 0;
+  border: 1px solid #172033;
+  border-radius: 8px 0 0 8px;
+  place-items: center;
+  background: #172033;
+  box-shadow: -4px 4px 0 rgb(255 106 77 / 38%);
+  color: #fff;
+  font-size: 1.15rem;
+  transform: translateY(-50%);
+  transition:
+    right 0.2s ease,
+    background 0.2s ease;
+}
+.ai-drawer-resize:hover,
+.ai-drawer-resize:focus-visible {
+  background: #173fbd;
+  outline: 2px solid #f6d86b;
+  outline-offset: 2px;
+}
+:global(.ai-assistant-drawer .ant-drawer-content-wrapper) {
+  transition: width 0.2s ease !important;
 }
 .ai-output-type,
 .ai-context,

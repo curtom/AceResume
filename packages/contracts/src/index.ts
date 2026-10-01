@@ -601,7 +601,7 @@ export const ResumeSuggestionSchema = z
     id: z.string().uuid(),
     advice: z.string().trim().min(1).max(2_000).default('基于事实来源优化内容表达与结构。'),
     text: z.string().trim().min(1).max(5_000),
-    beforeText: z.string().max(5_000),
+    beforeText: z.string().max(5_000).optional(),
     citations: z.array(AiCitationSchema).min(1).max(20),
     supportStatus: AiSupportStatusSchema,
     missingFacts: z.array(z.string().max(300)).max(20),

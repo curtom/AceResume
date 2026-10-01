@@ -28,12 +28,7 @@ import {
   type AiResumePatch,
   type ResumeSuggestion,
 } from '@aceresume/contracts';
-import {
-  ResumeSectionSchema,
-  type ResumeSection,
-  type RichTextDocument,
-  type RichTextNode,
-} from '@aceresume/resume-schema';
+import { ResumeSectionSchema, type ResumeSection } from '@aceresume/resume-schema';
 
 type SqlClient = ReturnType<typeof postgres>;
 type AiEventType = 'started' | 'progress' | 'delta' | 'suggestion' | 'completed' | 'failed';
@@ -61,36 +56,20 @@ class AiValidationError extends Error {
   }
 }
 
-function nodeText(node: RichTextNode): string {
-  if (node.type === 'text') return node.text;
-  if (node.type === 'hardBreak') return '\n';
-  return (node.content ?? [])
-    .map(nodeText)
-    .join(node.type === 'bulletList' || node.type === 'orderedList' ? '\n' : '');
-}
-function plainText(document: RichTextDocument): string {
-  return document.content.map(nodeText).join('\n').trim();
-}
-function targetFor(section: ResumeSection): { patch: AiResumePatch; beforeText: string } {
+function targetFor(section: ResumeSection): AiResumePatch {
   if (section.type === 'summary' || section.type === 'custom')
-    return {
-      patch: { sectionId: section.id, entryId: null, field: 'body', operation: 'replace' },
-      beforeText: plainText(section.content.body),
-    };
+    return { sectionId: section.id, entryId: null, field: 'body', operation: 'replace' };
   if ('entries' in section.content) {
     const entry = section.content.entries.at(-1);
     if (entry && 'description' in entry)
       return {
-        patch: {
-          sectionId: section.id,
-          entryId: entry.id,
-          field: 'description',
-          operation: 'replace',
-        },
-        beforeText: plainText(entry.description),
+        sectionId: section.id,
+        entryId: entry.id,
+        field: 'description',
+        operation: 'replace',
       };
   }
-  throw new AiValidationError('VALIDATION_FAILED', '当前模块还没有可优化的内容条目。');
+  throw new AiValidationError('VALIDATION_FAILED', '当前模块还没有可写入的内容条目。');
 }
 function vectorLiteral(vector: number[]): string {
   return '[' + vector.join(',') + ']';
@@ -426,7 +405,7 @@ export function startAiWorkers(environment: WorkerEnvironment) {
           schemaVersion: 1,
           ...(stored.style_override ? { styleOverride: stored.style_override } : {}),
         });
-        const target = targetFor(section);
+        const patch = targetFor(section);
         const promptRows = (await database.unsafe(
           "select content from prompt_versions where prompt_key || '-v' || version = $1 and status in ('active', 'retired') limit 1",
           [task.prompt_version],
@@ -474,7 +453,6 @@ export function startAiWorkers(environment: WorkerEnvironment) {
             id: randomUUID(),
             advice: candidate.advice,
             text: formattedText,
-            beforeText: target.beforeText,
             citations: citationsFrom.map((context) => {
               const excerpt = context.text.slice(0, 800);
               return {
@@ -494,7 +472,7 @@ export function startAiWorkers(environment: WorkerEnvironment) {
               ...unsupportedEntityList.map((value) => '请补充能够证明实体“' + value + '”的材料。'),
             ],
             riskFlags,
-            patch: target.patch,
+            patch,
             decision: 'pending',
             editedText: null,
             appliedAt: null,

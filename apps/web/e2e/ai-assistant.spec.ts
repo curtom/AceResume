@@ -26,7 +26,9 @@ test('generates a cited suggestion and writes it only after user approval', asyn
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('简历名称').fill('AI 安全测试简历');
   await dialog.getByRole('button', { name: '创建并编辑' }).click();
+  await expect(page.getByRole('button', { name: /AI 辅助/ })).toHaveCount(0);
   await page.getByRole('button', { name: /项目经历/ }).click();
+  await expect(page.getByRole('button', { name: /AI 辅助/ })).toBeVisible();
   await page.getByRole('button', { name: '＋ 添加条目' }).click();
   await page.getByLabel('项目名称').fill('校园交易平台');
   await page.getByLabel('担任角色').fill('前端负责人');
@@ -35,18 +37,34 @@ test('generates a cited suggestion and writes it only after user approval', asyn
 
   await page.getByRole('button', { name: /AI 辅助/ }).click();
   await expect(page.getByText('Ace AI 写作助手')).toBeVisible();
+  const drawer = page.locator('.ai-assistant-drawer .ant-drawer-content-wrapper');
+  const defaultDrawerBox = await drawer.boundingBox();
+  expect(defaultDrawerBox?.width).toBeCloseTo(430, 0);
+  await page.getByRole('button', { name: '展开 AI 助手' }).click();
+  await expect(page.getByRole('button', { name: '收回 AI 助手' })).toBeVisible();
+  await expect
+    .poll(async () => (await drawer.boundingBox())?.width)
+    .toBeCloseTo((await page.viewportSize())!.width / 2, 0);
+  await page.getByRole('button', { name: '收回 AI 助手' }).click();
   await expect(page.getByRole('radio', { name: '项目经历' })).toBeChecked();
   await page.locator('.source-option', { hasText: '项目事实.txt' }).click();
   await page.locator('.consent-row').click();
   await page.getByRole('button', { name: /生成优化建议/ }).click();
-  await expect(page.getByText('04 · 建议已生成')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText('04 · 项目经历生成结果')).toBeVisible({ timeout: 60_000 });
   const firstSuggestion = page.locator('.suggestion-card').first();
   await expect(firstSuggestion.getByText('依据充分')).toBeVisible();
-  await expect(firstSuggestion.getByText('修改建议')).toBeVisible();
+  await expect(firstSuggestion.getByText('写作建议')).toBeVisible();
+  await expect(firstSuggestion.getByText('修改前')).toHaveCount(0);
+  await expect(firstSuggestion).not.toContainText('负责交易页面开发。');
   await expect(firstSuggestion.locator('textarea')).toHaveValue(/^• /);
   await firstSuggestion.getByText(/查看 1 项事实来源/).click();
   await expect(firstSuggestion.getByText('项目事实.txt')).toBeVisible();
   await expect(firstSuggestion).toContainText('8 个复用组件');
+
+  await page.getByRole('button', { name: '关闭 AI 助手' }).click();
+  await page.getByRole('button', { name: /AI 辅助/ }).click();
+  await expect(page.getByText('04 · 项目经历生成结果')).toBeVisible();
+  await expect(page.locator('.suggestion-card').first()).toContainText('8 个复用组件');
 
   await firstSuggestion.getByRole('button', { name: '✓ 接受并写入' }).click();
   await expect(page.getByText('已接受并写入').first()).toBeVisible();
