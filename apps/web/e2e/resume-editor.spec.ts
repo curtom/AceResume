@@ -70,8 +70,9 @@ test('creates, edits and automatically saves the latest resume', async ({ page }
   const startMonth = page.getByPlaceholder('选择开始月份');
   const endMonth = page.getByPlaceholder('选择结束月份');
   await expect(startMonth).toHaveAttribute('readonly', '');
-  await expect(endMonth).toBeDisabled();
-  await expect(page.getByText('至今', { exact: true })).toBeVisible();
+  await expect(startMonth).toHaveValue('');
+  await expect(endMonth).toBeEnabled();
+  await expect(page.getByRole('checkbox', { name: '至今' })).not.toBeChecked();
   await startMonth.click();
   await expect(page.locator('.ant-picker-month-panel')).toBeVisible();
   await page.keyboard.press('Escape');

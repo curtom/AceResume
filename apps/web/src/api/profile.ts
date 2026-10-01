@@ -20,9 +20,13 @@ export async function getProfile(): Promise<Profile> {
 export async function updateProfile(input: UpdateProfileRequest): Promise<Profile> {
   return ProfileSchema.parse((await http.put('/profile', input)).data.data);
 }
-export async function listEntries(type: ProfileEntryType, page = 1): Promise<ProfileEntryPage> {
+export async function listEntries(
+  type: ProfileEntryType,
+  page = 1,
+  pageSize = 20,
+): Promise<ProfileEntryPage> {
   return ProfileEntryPageSchema.parse(
-    (await http.get('/profile/entries', { params: { type, page, pageSize: 20 } })).data.data,
+    (await http.get('/profile/entries', { params: { type, page, pageSize } })).data.data,
   );
 }
 export async function createEntry(input: CreateProfileEntryRequest): Promise<ProfileEntry> {

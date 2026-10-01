@@ -16,6 +16,7 @@ export const ResumeSectionTypeSchema = z.enum([
 const nullableText = (maximum: number) =>
   z.union([z.string().trim().max(maximum), z.null()]).transform((value) => value || null);
 const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, '日期格式必须为 YYYY-MM');
+const startMonth = z.union([month, z.literal('')]);
 const optionalMonth = z.union([month, z.null()]);
 const safeLink = z
   .string()
@@ -75,7 +76,7 @@ export const RichTextDocumentSchema = z
 export type RichTextDocument = z.infer<typeof RichTextDocumentSchema>;
 
 const entryBase = { id: z.string().uuid(), sortOrder: z.number().int().nonnegative() };
-const timeline = { startDate: month, endDate: optionalMonth, isCurrent: z.boolean() };
+const timeline = { startDate: startMonth, endDate: optionalMonth, isCurrent: z.boolean() };
 export const EducationResumeEntrySchema = z
   .object({
     ...entryBase,

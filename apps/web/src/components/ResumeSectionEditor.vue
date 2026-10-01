@@ -19,6 +19,7 @@ const emit = defineEmits<{
   updateTarget: [value: string];
   uploadAvatar: [file: globalThis.File];
   removeAvatar: [];
+  importProfile: [entryIndex?: number];
   remove: [];
 }>();
 const avatarInput = ref<globalThis.HTMLInputElement | null>(null);
@@ -82,7 +83,6 @@ function addEntry(): void {
     if (!('entries' in section.content)) return;
     const base = { id: globalThis.crypto.randomUUID(), sortOrder: section.content.entries.length };
     const rich = JSON.parse(JSON.stringify(EMPTY_RICH_TEXT));
-    const month = new Date().toISOString().slice(0, 7);
     const entry =
       section.type === 'education'
         ? {
@@ -90,9 +90,9 @@ function addEntry(): void {
             school: '',
             major: '',
             degree: '',
-            startDate: month,
+            startDate: '',
             endDate: null,
-            isCurrent: true,
+            isCurrent: false,
             description: rich,
           }
         : section.type === 'experience'
@@ -101,9 +101,9 @@ function addEntry(): void {
               organization: '',
               position: '',
               location: null,
-              startDate: month,
+              startDate: '',
               endDate: null,
-              isCurrent: true,
+              isCurrent: false,
               description: rich,
             }
           : section.type === 'project'
@@ -113,9 +113,9 @@ function addEntry(): void {
                 role: null,
                 technologies: [],
                 url: null,
-                startDate: month,
+                startDate: '',
                 endDate: null,
-                isCurrent: true,
+                isCurrent: false,
                 description: rich,
               }
             : section.type === 'campus'
@@ -123,9 +123,9 @@ function addEntry(): void {
                   ...base,
                   organization: '',
                   role: '',
-                  startDate: month,
+                  startDate: '',
                   endDate: null,
-                  isCurrent: true,
+                  isCurrent: false,
                   description: rich,
                 }
               : section.type === 'skill'
@@ -171,6 +171,10 @@ function moveEntry(index: number, direction: -1 | 1): void {
       </a-popconfirm>
     </div>
     <div v-if="section.type === 'basic'" class="field-grid">
+      <div class="profile-import-row wide">
+        <span>使用个人资料中已维护的基本信息快速填写</span>
+        <button type="button" @click="emit('importProfile')">从个人资料导入</button>
+      </div>
       <div class="avatar-field wide">
         <span>个人头像</span>
         <div class="avatar-control">
@@ -265,8 +269,15 @@ function moveEntry(index: number, direction: -1 | 1): void {
       ><span>目标职位</span
       ><a-input :value="section.content.role ?? ''" @change="setTarget($event.target.value)"
     /></label>
+    <template v-else-if="section.type === 'summary'">
+      <div class="profile-import-row">
+        <span>使用个人资料中的自我评价快速填写</span>
+        <button type="button" @click="emit('importProfile')">从个人资料导入</button>
+      </div>
+      <ResumeRichTextEditor :model-value="section.content.body" @update:model-value="setBody" />
+    </template>
     <ResumeRichTextEditor
-      v-else-if="section.type === 'summary' || section.type === 'custom'"
+      v-else-if="section.type === 'custom'"
       :model-value="section.content.body"
       @update:model-value="setBody"
     />
@@ -275,6 +286,7 @@ function moveEntry(index: number, direction: -1 | 1): void {
         <div class="entry-actions">
           <b>条目 {{ index + 1 }}</b>
           <span>
+            <button type="button" @click="emit('importProfile', index)">从个人资料导入</button>
             <button type="button" :disabled="index === 0" @click="moveEntry(index, -1)">↑</button>
             <button
               type="button"
@@ -300,6 +312,13 @@ function moveEntry(index: number, direction: -1 | 1): void {
         <div class="entry-actions">
           <b>条目 {{ index + 1 }}</b>
           <span>
+            <button
+              v-if="section.type !== 'award'"
+              type="button"
+              @click="emit('importProfile', index)"
+            >
+              从个人资料导入
+            </button>
             <button type="button" :disabled="index === 0" @click="moveEntry(index, -1)">↑</button>
             <button
               type="button"
@@ -456,6 +475,28 @@ function moveEntry(index: number, direction: -1 | 1): void {
   gap: 1rem;
   border-bottom: 1px solid #e1e5ec;
   padding-bottom: 1rem;
+}
+.profile-import-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #cbd6eb;
+  border-left: 3px solid #173fbd;
+  border-radius: 6px;
+  background: #f5f8ff;
+  color: #536078;
+  font-size: 0.78rem;
+}
+.profile-import-row button {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #8fa4cc;
+  border-radius: 5px;
+  background: white;
+  color: #173fbd;
+  font-weight: 700;
 }
 label {
   display: grid;

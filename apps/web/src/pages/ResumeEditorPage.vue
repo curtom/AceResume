@@ -23,6 +23,7 @@ import * as profileApi from '@/api/profile';
 import { listTemplates } from '@/api/template';
 import ResumePreview from '@/components/ResumePreview.vue';
 import ResumeSectionEditor from '@/components/ResumeSectionEditor.vue';
+import { applyProfileImport, type ProfileImportSource } from '@/modules/resume/profile-import';
 import { useResumeEditorStore } from '@/stores/resume-editor';
 
 const route = useRoute();
@@ -59,6 +60,12 @@ const aiContentType = ref<AiContentType>('project');
 const editedSuggestions = ref<Record<string, string>>({});
 const isCreatingExport = ref(false);
 const isAvatarBusy = ref(false);
+const isProfileImportOpen = ref(false);
+const isLoadingProfileImport = ref(false);
+const profileImportSources = ref<ProfileImportSource[]>([]);
+const selectedProfileImportId = ref<string | null>(null);
+const profileImportSectionId = ref<string | null>(null);
+const profileImportEntryIndex = ref<number | undefined>();
 const isFormCollapsed = ref(false);
 const templates = ref<TemplateSummary[]>([]);
 const diagnostics = ref<RenderDiagnostics | null>(null);
@@ -109,6 +116,10 @@ const aiResultContentType = computed<AiContentType | null>(() => {
   return section && ['project', 'experience', 'campus'].includes(section.type)
     ? (section.type as AiContentType)
     : null;
+});
+const profileImportTitle = computed(() => {
+  const section = document.value?.sections.find((item) => item.id === profileImportSectionId.value);
+  return section ? `从个人资料导入${section.title}` : '从个人资料导入';
 });
 const isAiSupportedSection = computed(() =>
   ['project', 'experience', 'campus'].includes(selectedSection.value?.type ?? ''),
@@ -194,6 +205,152 @@ function updateTarget(value: string): void {
   const section = targetSection.value;
   if (section?.type === 'target')
     store.updateSection({ ...section, content: { role: value.trim() || null } });
+}
+async function listAllProfileEntries(type: ProfileEntryType): Promise<ProfileEntry[]> {
+  const first = await profileApi.listEntries(type, 1, 50);
+  const pages = Math.ceil(first.total / first.pageSize);
+  if (pages <= 1) return first.items;
+  const remaining = await Promise.all(
+    Array.from({ length: pages - 1 }, (_, index) => profileApi.listEntries(type, index + 2, 50)),
+  );
+  return [first, ...remaining].flatMap((page) => page.items);
+}
+function isProfileEntryType(type: ResumeSection['type']): type is ProfileEntryType {
+  return ['education', 'experience', 'project', 'campus', 'skill'].includes(type);
+}
+async function openProfileImport(entryIndex?: number): Promise<void> {
+  const section = selectedSection.value;
+  if (
+    !section ||
+    (section.type !== 'basic' && section.type !== 'summary' && !isProfileEntryType(section.type))
+  )
+    return;
+  isProfileImportOpen.value = true;
+  isLoadingProfileImport.value = true;
+  profileImportSources.value = [];
+  selectedProfileImportId.value = null;
+  profileImportSectionId.value = section.id;
+  profileImportEntryIndex.value = entryIndex;
+  try {
+    profileImportSources.value =
+      section.type === 'basic' || section.type === 'summary'
+        ? [await profileApi.getProfile()]
+        : await listAllProfileEntries(section.type);
+  } catch (error: unknown) {
+    message.error(getApiErrorMessage(error));
+  } finally {
+    isLoadingProfileImport.value = false;
+  }
+}
+function profileImportName(source: ProfileImportSource): string | null {
+  if (!('type' in source) || source.type === 'skill') return null;
+  if (source.type === 'education') return source.content.school;
+  if (source.type === 'project') return source.content.name;
+  return source.content.organization;
+}
+function profileImportDetails(
+  source: ProfileImportSource,
+): Array<{ label: string; value: string }> {
+  const rows: Array<{ label: string; value: string | null | undefined }> = [];
+  if (!('type' in source)) {
+    const section = document.value?.sections.find(
+      (item) => item.id === profileImportSectionId.value,
+    );
+    if (section?.type === 'summary') rows.push({ label: '自我评价', value: source.selfEvaluation });
+    else {
+      rows.push(
+        { label: '姓名', value: source.fullName },
+        { label: '求职意向', value: source.targetRole },
+        { label: '邮箱', value: source.email },
+        { label: '电话', value: source.phone },
+        { label: '所在地', value: source.location },
+        ...source.customFields.map((field) => ({ label: field.label, value: field.value })),
+      );
+    }
+  } else if (source.type === 'education') {
+    rows.push(
+      { label: '学校', value: source.content.school },
+      { label: '专业', value: source.content.major },
+      { label: '学历', value: source.content.degree },
+      {
+        label: '时间',
+        value: `${source.content.startDate} — ${source.content.isCurrent ? '至今' : (source.content.endDate ?? '')}`,
+      },
+      { label: '内容描述', value: source.content.description },
+    );
+  } else if (source.type === 'project') {
+    rows.push(
+      { label: '项目名称', value: source.content.name },
+      { label: '担任角色', value: source.content.role },
+      {
+        label: '时间',
+        value: `${source.content.startDate} — ${source.content.isCurrent ? '至今' : (source.content.endDate ?? '')}`,
+      },
+      {
+        label: '内容描述',
+        value: [
+          source.content.background,
+          ...source.content.responsibilities,
+          ...source.content.outcomes,
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      },
+      { label: '技术栈', value: source.content.technologies.join('、') },
+      { label: '项目链接', value: source.content.url },
+    );
+  } else if (source.type === 'experience') {
+    rows.push(
+      { label: '组织 / 公司', value: source.content.organization },
+      { label: '职位', value: source.content.position },
+      {
+        label: '时间',
+        value: `${source.content.startDate} — ${source.content.isCurrent ? '至今' : (source.content.endDate ?? '')}`,
+      },
+      {
+        label: '内容描述',
+        value: [...source.content.responsibilities, ...source.content.outcomes].join('\n'),
+      },
+      { label: '相关技能', value: source.content.skills.join('、') },
+    );
+  } else if (source.type === 'campus') {
+    rows.push(
+      { label: '组织', value: source.content.organization },
+      { label: '角色', value: source.content.role },
+      {
+        label: '时间',
+        value: `${source.content.startDate} — ${source.content.isCurrent ? '至今' : (source.content.endDate ?? '')}`,
+      },
+      { label: '内容描述', value: source.content.description },
+    );
+  } else {
+    rows.push({ label: '内容描述', value: source.content.description });
+  }
+  return rows.filter((row): row is { label: string; value: string } =>
+    Boolean(row.label && row.value),
+  );
+}
+function confirmProfileImport(): void {
+  const section = document.value?.sections.find((item) => item.id === profileImportSectionId.value);
+  const source = profileImportSources.value.find(
+    (item) => item.id === selectedProfileImportId.value,
+  );
+  if (!section || !source) return;
+  try {
+    const result = applyProfileImport(section, source, profileImportEntryIndex.value);
+    store.mutate((resume) => {
+      const index = resume.sections.findIndex((item) => item.id === result.section.id);
+      if (index >= 0) resume.sections[index] = result.section;
+      if (result.targetRole !== undefined) {
+        const target = resume.sections.find((item) => item.type === 'target');
+        if (target?.type === 'target') target.content.role = result.targetRole;
+      }
+    });
+    isProfileImportOpen.value = false;
+    message.success('已从个人资料导入并更新当前内容。');
+  } catch (error: unknown) {
+    message.error(error instanceof Error ? error.message : '导入失败，请重试。');
+  }
 }
 async function uploadAvatar(file: globalThis.File): Promise<void> {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
@@ -567,6 +724,7 @@ onBeforeUnmount(() => {
           @update-target="updateTarget"
           @upload-avatar="uploadAvatar"
           @remove-avatar="removeAvatar"
+          @import-profile="openProfileImport"
           @remove="store.removeCustomSection(selectedSection.id)"
         />
       </section>
@@ -605,6 +763,47 @@ onBeforeUnmount(() => {
       @cancel="store.useServerAfterConflict"
       ><p>为避免静默覆盖，请选择要保留的内容。</p></a-modal
     >
+    <a-modal
+      v-model:open="isProfileImportOpen"
+      :title="profileImportTitle"
+      ok-text="确认导入"
+      cancel-text="取消"
+      width="680px"
+      :ok-button-props="{ disabled: !selectedProfileImportId || isLoadingProfileImport }"
+      @ok="confirmProfileImport"
+    >
+      <a-skeleton v-if="isLoadingProfileImport" active :paragraph="{ rows: 6 }" />
+      <a-empty
+        v-else-if="profileImportSources.length === 0"
+        description="个人资料中暂无可导入的内容"
+      />
+      <div v-else class="profile-import-options">
+        <article
+          v-for="(source, index) in profileImportSources"
+          :key="source.id"
+          class="profile-import-card"
+          :class="{ selected: selectedProfileImportId === source.id }"
+        >
+          <header v-if="profileImportName(source)">
+            <span>{{ String(index + 1).padStart(2, '0') }}</span>
+            <h3>{{ profileImportName(source) }}</h3>
+          </header>
+          <dl>
+            <template v-for="detailRow in profileImportDetails(source)" :key="detailRow.label">
+              <dt>{{ detailRow.label }}</dt>
+              <dd>{{ detailRow.value }}</dd>
+            </template>
+          </dl>
+          <button
+            type="button"
+            :aria-pressed="selectedProfileImportId === source.id"
+            @click="selectedProfileImportId = source.id"
+          >
+            {{ selectedProfileImportId === source.id ? '已选择' : '选择此信息' }}
+          </button>
+        </article>
+      </div>
+    </a-modal>
     <a-drawer
       v-model:open="isAiOpen"
       :width="aiDrawerWidth"
@@ -1255,6 +1454,83 @@ onBeforeUnmount(() => {
 .section-controls .ai-entry:disabled {
   cursor: not-allowed;
   opacity: 0.42;
+}
+.profile-import-options {
+  display: grid;
+  max-height: 32rem;
+  gap: 0.8rem;
+  overflow-y: auto;
+  padding: 0.15rem;
+}
+.profile-import-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.85rem 1rem;
+  padding: 1rem;
+  border: 1px solid #dfe4ec;
+  border-left: 4px solid #c6cfdd;
+  border-radius: 7px;
+  background: #fbfcfe;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+.profile-import-card.selected {
+  border-color: #173fbd;
+  background: #f3f6ff;
+}
+.profile-import-card header,
+.profile-import-card dl {
+  grid-column: 1 / -1;
+}
+.profile-import-card header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+}
+.profile-import-card header span {
+  color: #ff8068;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.profile-import-card h3 {
+  margin: 0;
+  color: #25344d;
+  font-family: var(--serif);
+  font-size: 1rem;
+}
+.profile-import-card dl {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 0.4rem 0.75rem;
+  margin: 0;
+}
+.profile-import-card dt {
+  color: #7a8493;
+  font-size: 0.72rem;
+}
+.profile-import-card dd {
+  margin: 0;
+  white-space: pre-line;
+  color: #3f4e65;
+  font-size: 0.78rem;
+}
+.profile-import-card > button {
+  grid-column: 2;
+  min-width: 6.5rem;
+  align-self: end;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid #8fa4cc;
+  border-radius: 5px;
+  background: white;
+  color: #173fbd;
+  font-weight: 700;
+}
+.profile-import-card.selected > button {
+  border-color: #173fbd;
+  background: #173fbd;
+  color: white;
 }
 .preview-panel {
   position: relative;

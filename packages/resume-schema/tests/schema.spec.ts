@@ -90,4 +90,40 @@ describe('resume schema', () => {
       expect(education.content.entries[0]).not.toHaveProperty('ranking');
     }
   });
+
+  it('accepts a new experience entry with an empty timeline', () => {
+    const result = ResumeDocumentSchema.safeParse({
+      schemaVersion: 1,
+      resumeId: randomUUID(),
+      templateVersionId: 'classic-single-v1',
+      locale: 'zh-CN',
+      sections: [
+        {
+          id: randomUUID(),
+          type: 'experience',
+          title: '实习 / 工作经历',
+          sortOrder: 0,
+          isVisible: true,
+          schemaVersion: 1,
+          content: {
+            entries: [
+              {
+                id: randomUUID(),
+                sortOrder: 0,
+                organization: '',
+                position: '',
+                location: null,
+                startDate: '',
+                endDate: null,
+                isCurrent: false,
+                description: { type: 'doc', content: [{ type: 'paragraph' }] },
+              },
+            ],
+          },
+        },
+      ],
+      theme: DEFAULT_RESUME_THEME,
+    });
+    expect(result.success).toBe(true);
+  });
 });
