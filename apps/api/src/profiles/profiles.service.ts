@@ -1,5 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
+  CampusContentSchema,
   EducationContentSchema,
   ExperienceContentSchema,
   ProjectContentSchema,
@@ -112,6 +113,7 @@ export class ProfilesService {
       education: EducationContentSchema,
       project: ProjectContentSchema,
       experience: ExperienceContentSchema,
+      campus: CampusContentSchema,
       skill: SkillContentSchema,
     };
     const result = schemas[type].safeParse(content);
@@ -156,8 +158,8 @@ export class ProfilesService {
       email: profile.email,
       phone: profile.phone,
       location: profile.location,
-      website: profile.website,
-      summary: profile.summary,
+      customFields: profile.customFields,
+      selfEvaluation: profile.summary,
       version: profile.version,
       schemaVersion: 1,
       updatedAt: profile.updatedAt.toISOString(),

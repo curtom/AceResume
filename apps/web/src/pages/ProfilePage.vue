@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
 import {
+  CampusContentSchema,
   EducationContentSchema,
   ExperienceContentSchema,
   ProjectContentSchema,
@@ -9,6 +10,7 @@ import {
   UpdateProfileRequestSchema,
   type CreateProfileEntryRequest,
   type Profile,
+  type ProfileCustomField,
   type ProfileEntry,
   type ProfileEntryType,
 } from '@aceresume/contracts';
@@ -28,8 +30,6 @@ type EntryForm = {
   startDate: string;
   endDate: string;
   isCurrent: boolean;
-  grade: string;
-  ranking: string;
   description: string;
 };
 const profile = ref<Profile | null>(null);
@@ -39,8 +39,8 @@ const basic = reactive({
   email: '',
   phone: '',
   location: '',
-  website: '',
-  summary: '',
+  customFields: [] as ProfileCustomField[],
+  selfEvaluation: '',
 });
 const activeTab = ref<ProfileTab>('basic');
 const entries = ref<ProfileEntry[]>([]);
@@ -56,6 +56,7 @@ const tabs: { key: ProfileTab; label: string }[] = [
   { key: 'education', label: '教育经历' },
   { key: 'project', label: '项目经历' },
   { key: 'experience', label: '实习 / 工作经历' },
+  { key: 'campus', label: '校园经历' },
   { key: 'skill', label: '专业技能' },
 ];
 
@@ -69,9 +70,7 @@ function blankEntry(type: ProfileEntryType): EntryForm {
     degree: '',
     startDate: '',
     endDate: '',
-    isCurrent: type === 'project' || type === 'experience',
-    grade: '',
-    ranking: '',
+    isCurrent: type === 'project' || type === 'experience' || type === 'campus',
     description: '',
   };
 }
@@ -87,8 +86,8 @@ async function loadProfile(): Promise<void> {
       email: profile.value.email ?? '',
       phone: profile.value.phone ?? '',
       location: profile.value.location ?? '',
-      website: profile.value.website ?? '',
-      summary: profile.value.summary ?? '',
+      customFields: profile.value.customFields.map((field) => ({ ...field })),
+      selfEvaluation: profile.value.selfEvaluation ?? '',
     });
   } catch (error: unknown) {
     message.error(getApiErrorMessage(error));
@@ -118,6 +117,10 @@ async function loadEntries(type: ProfileEntryType, targetPage: number): Promise<
 
 async function saveBasic(): Promise<void> {
   if (!profile.value) return;
+  if (basic.customFields.some((field) => !field.label.trim() || !field.value.trim())) {
+    message.error('请完整填写每个自定义字段的字段名和字段内容。');
+    return;
+  }
   const parsed = UpdateProfileRequestSchema.safeParse({
     ...basic,
     fullName: nullable(basic.fullName),
@@ -125,8 +128,8 @@ async function saveBasic(): Promise<void> {
     email: nullable(basic.email),
     phone: nullable(basic.phone),
     location: nullable(basic.location),
-    website: nullable(basic.website),
-    summary: nullable(basic.summary),
+    customFields: basic.customFields,
+    selfEvaluation: nullable(basic.selfEvaluation),
     baseVersion: profile.value.version,
   });
   if (!parsed.success) {
@@ -144,14 +147,26 @@ async function saveBasic(): Promise<void> {
   }
 }
 
+function addCustomField(): void {
+  if (basic.customFields.length >= 10) {
+    message.warning('最多添加 10 个自定义字段。');
+    return;
+  }
+  basic.customFields.push({ id: globalThis.crypto.randomUUID(), label: '', value: '' });
+}
+
+function removeCustomField(index: number): void {
+  basic.customFields.splice(index, 1);
+}
+
 function openCreate(): void {
   Object.assign(entryForm, blankEntry(activeTab.value === 'basic' ? 'education' : activeTab.value));
   isModalOpen.value = true;
 }
 function openEdit(entry: ProfileEntry): void {
   Object.assign(entryForm, blankEntry(entry.type), { id: entry.id, version: entry.version });
-  const content = entry.content;
-  if ('school' in content)
+  if (entry.type === 'education') {
+    const content = entry.content;
     Object.assign(entryForm, {
       primary: content.school,
       secondary: content.major,
@@ -159,11 +174,10 @@ function openEdit(entry: ProfileEntry): void {
       startDate: content.startDate,
       endDate: content.endDate ?? '',
       isCurrent: content.isCurrent,
-      grade: content.grade ?? '',
-      ranking: content.ranking ?? '',
       description: content.description ?? '',
     });
-  else if ('organization' in content)
+  } else if (entry.type === 'experience') {
+    const content = entry.content;
     Object.assign(entryForm, {
       primary: content.organization,
       secondary: content.position,
@@ -178,7 +192,18 @@ function openEdit(entry: ProfileEntry): void {
         .filter(Boolean)
         .join('\n'),
     });
-  else if ('category' in content)
+  } else if (entry.type === 'campus') {
+    const content = entry.content;
+    Object.assign(entryForm, {
+      primary: content.organization,
+      secondary: content.role,
+      startDate: content.startDate,
+      endDate: content.endDate ?? '',
+      isCurrent: content.isCurrent,
+      description: content.description ?? '',
+    });
+  } else if (entry.type === 'skill') {
+    const content = entry.content;
     Object.assign(entryForm, {
       description: [
         content.name === '专业技能' ? '' : `${content.category} · ${content.name}`,
@@ -188,7 +213,8 @@ function openEdit(entry: ProfileEntry): void {
         .filter(Boolean)
         .join('\n'),
     });
-  else
+  } else {
+    const content = entry.content;
     Object.assign(entryForm, {
       primary: content.name,
       secondary: content.role ?? '',
@@ -205,6 +231,7 @@ function openEdit(entry: ProfileEntry): void {
         .filter(Boolean)
         .join('\n'),
     });
+  }
   isModalOpen.value = true;
 }
 
@@ -223,8 +250,6 @@ function buildEntryRequest(): CreateProfileEntryRequest {
         major: entryForm.secondary,
         degree: entryForm.degree,
         ...dates,
-        grade: nullable(entryForm.grade),
-        ranking: nullable(entryForm.ranking),
         description: nullable(entryForm.description),
       }),
     };
@@ -254,6 +279,17 @@ function buildEntryRequest(): CreateProfileEntryRequest {
         responsibilities: nullable(entryForm.description) ? [entryForm.description.trim()] : [],
         outcomes: [],
         skills: [],
+      }),
+    };
+  if (entryForm.type === 'campus')
+    return {
+      type: 'campus',
+      content: CampusContentSchema.parse({
+        schemaVersion: 1,
+        organization: entryForm.primary,
+        role: entryForm.secondary,
+        ...dates,
+        description: nullable(entryForm.description),
       }),
     };
   return {
@@ -367,12 +403,47 @@ onMounted(() => void loadProfile());
             <label><span>联系邮箱</span><a-input v-model:value="basic.email" type="email" /></label>
             <label><span>电话</span><a-input v-model:value="basic.phone" /></label>
             <label><span>所在地</span><a-input v-model:value="basic.location" /></label>
-            <label
-              ><span>个人网站</span><a-input v-model:value="basic.website" placeholder="https://"
-            /></label>
+            <div class="custom-fields wide">
+              <div class="custom-fields-heading">
+                <span>自定义字段</span>
+                <button type="button" @click="addCustomField">＋ 添加字段</button>
+              </div>
+              <div
+                v-for="(field, index) in basic.customFields"
+                :key="field.id"
+                class="custom-field-row"
+              >
+                <label>
+                  <span>字段名</span>
+                  <a-input v-model:value="field.label" :maxlength="80" placeholder="例如：作品集" />
+                </label>
+                <label>
+                  <span>字段内容</span>
+                  <a-input
+                    v-model:value="field.value"
+                    :maxlength="300"
+                    placeholder="例如：https://example.com"
+                  />
+                </label>
+                <button
+                  type="button"
+                  :aria-label="`删除自定义字段 ${index + 1}`"
+                  @click="removeCustomField(index)"
+                >
+                  删除
+                </button>
+              </div>
+              <small v-if="basic.customFields.length === 0"
+                >可添加作品集、社交主页等补充信息。</small
+              >
+            </div>
             <label class="wide"
-              ><span>个人简介</span
-              ><a-textarea v-model:value="basic.summary" :rows="5" :maxlength="2000" show-count
+              ><span>自我评价</span
+              ><a-textarea
+                v-model:value="basic.selfEvaluation"
+                :rows="5"
+                :maxlength="2000"
+                show-count
             /></label>
           </div>
           <button class="save-button" type="submit" :disabled="isSaving">
@@ -415,7 +486,9 @@ onMounted(() => void loadProfile());
               ? '学校'
               : entryForm.type === 'experience'
                 ? '组织 / 公司'
-                : '项目名称'
+                : entryForm.type === 'campus'
+                  ? '组织'
+                  : '项目名称'
           }}</span
           ><a-input v-model:value="entryForm.primary"
         /></label>
@@ -425,7 +498,9 @@ onMounted(() => void loadProfile());
               ? '专业'
               : entryForm.type === 'experience'
                 ? '职位'
-                : '担任角色'
+                : entryForm.type === 'campus'
+                  ? '角色'
+                  : '担任角色'
           }}</span
           ><a-input v-model:value="entryForm.secondary"
         /></label>
@@ -463,12 +538,8 @@ onMounted(() => void loadProfile());
             </div></label
           >
         </template>
-        <template v-if="entryForm.type === 'education'">
-          <label><span>绩点</span><a-input v-model:value="entryForm.grade" /></label
-          ><label><span>排名</span><a-input v-model:value="entryForm.ranking" /></label>
-        </template>
         <label class="wide"
-          ><span>{{ entryForm.type === 'education' ? '补充说明' : '内容描述' }}</span
+          ><span>内容描述</span
           ><a-textarea
             v-model:value="entryForm.description"
             :rows="4"
@@ -594,6 +665,42 @@ onMounted(() => void loadProfile());
 .wide {
   grid-column: 1 / -1;
 }
+.custom-fields {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--line-color);
+  background: #fafbfc;
+}
+.custom-fields-heading,
+.custom-field-row {
+  display: flex;
+  align-items: end;
+  gap: 0.75rem;
+}
+.custom-fields-heading {
+  justify-content: space-between;
+  color: #5c6573;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.custom-fields-heading button,
+.custom-field-row > button {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #8fa4cc;
+  background: white;
+  color: var(--brand-blue);
+}
+.custom-field-row label {
+  min-width: 0;
+  flex: 1;
+}
+.custom-field-row > button {
+  color: #8b4454;
+}
+.custom-fields small {
+  color: var(--muted-color);
+}
 .month-picker {
   width: 100%;
 }
@@ -626,6 +733,10 @@ onMounted(() => void loadProfile());
   }
   .wide {
     grid-column: auto;
+  }
+  .custom-field-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 </style>

@@ -235,8 +235,8 @@ export class DocumentsService {
       email: value('email') ?? profile.email,
       phone: value('phone') ?? profile.phone,
       location: value('location') ?? profile.location,
-      website: profile.website,
-      summary: value('summary') ?? profile.summary,
+      customFields: profile.customFields,
+      selfEvaluation: value('summary') ?? profile.selfEvaluation,
     };
     await this.profiles.updateProfile(userId, { ...basicFields, baseVersion: profile.version });
     const startDate = value('startDate');
@@ -252,8 +252,6 @@ export class DocumentsService {
           startDate,
           endDate,
           isCurrent: !endDate,
-          grade: null,
-          ranking: null,
           description: value('description', 'education'),
         },
       },

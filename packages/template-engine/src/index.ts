@@ -235,18 +235,21 @@ function renderSection(
   if (!section.isVisible) return '';
   const region = sectionRegion(section, definition);
   if (section.type === 'basic') {
-    const { fullName, email, phone, location, website } = section.content;
+    const { fullName, email, phone, location, customFields } = section.content;
+    const customFieldText = customFields
+      .filter((field) => field.label && field.value)
+      .map((field) => `${escapeHtml(field.label)}: ${escapeHtml(field.value)}`)
+      .join(' · ');
     return `<header class="resume-block identity" data-region="${region}"><div class="identity-main"><h1>${escapeHtml(fullName ?? '未命名')}</h1>${targetRole ? `<p class="target">求职意向 · ${escapeHtml(targetRole)}</p>` : ''}<p>${[
       email,
       phone,
       location,
-      website,
     ]
       .filter(Boolean)
       .map((value) => escapeHtml(String(value)))
       .join(
         ' · ',
-      )}</p></div>${avatarUrl ? `<img class="resume-avatar" src="${escapeHtml(avatarUrl)}" alt="个人头像">` : ''}</header>`;
+      )}</p>${customFieldText ? `<p class="identity-custom-fields">${customFieldText}</p>` : ''}</div>${avatarUrl ? `<img class="resume-avatar" src="${escapeHtml(avatarUrl)}" alt="个人头像">` : ''}</header>`;
   }
   if (section.type === 'target') return '';
   const entries = renderEntries(section, definition);
@@ -331,7 +334,9 @@ export const SAMPLE_RESUME_DOCUMENT: ResumeDocument = {
         email: 'lin@example.test',
         phone: '138 0000 0000',
         location: '杭州',
-        website: 'https://example.test',
+        customFields: [
+          { id: '00000000-0000-4000-8000-000000000099', label: '作品集', value: 'example.test' },
+        ],
       },
     },
     {
@@ -361,8 +366,6 @@ export const SAMPLE_RESUME_DOCUMENT: ResumeDocument = {
             startDate: '2022-09',
             endDate: '2026-06',
             isCurrent: false,
-            grade: '3.8 / 4.0',
-            ranking: '前 10%',
             description: text('主修数据结构、计算机网络与软件工程。'),
           },
         ],

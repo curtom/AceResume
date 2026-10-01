@@ -83,8 +83,15 @@ const profileTypeLabel: Record<ProfileEntryType, string> = {
   education: '教育经历',
   project: '项目经历',
   experience: '实习 / 工作',
+  campus: '校园经历',
   skill: '技能',
 };
+function profileEntryName(entry: ProfileEntry): string {
+  if (entry.type === 'experience' || entry.type === 'campus') return entry.content.organization;
+  if (entry.type === 'project') return entry.content.name;
+  if (entry.type === 'education') return entry.content.school;
+  return entry.content.description?.split('\n')[0] || '专业技能';
+}
 const aiContentTypeLabel: Record<AiContentType, string> = {
   project: '项目经历',
   experience: '工作 / 实习经历',
@@ -281,7 +288,7 @@ async function openAi(): Promise<void> {
   isAiOpen.value = true;
   isLoadingAiSources.value = true;
   try {
-    const profileTypes: ProfileEntryType[] = ['project', 'experience'];
+    const profileTypes: ProfileEntryType[] = ['project', 'experience', 'campus'];
     const [documentsPage, ...entryPages] = await Promise.all([
       documentApi.listDocuments(),
       ...profileTypes.map((type) => profileApi.listEntries(type)),
@@ -678,8 +685,8 @@ onBeforeUnmount(() => {
                 "
               />
               <span
-                ><b>{{ profileTypeLabel[item.type] }}</b
-                ><small>个人资料 · 结构化条目</small></span
+                ><b>{{ profileEntryName(item) }}</b
+                ><small>个人资料 · {{ profileTypeLabel[item.type] }}</small></span
               >
             </label>
           </section>

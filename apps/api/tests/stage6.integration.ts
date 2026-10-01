@@ -149,6 +149,7 @@ async function main(): Promise<void> {
       body: JSON.stringify({
         resumeId: saved.id,
         sectionId: project.id,
+        contentType: 'project',
         baseVersion: saved.version,
         instruction: '突出工程化成果',
         jobDescription: '希望候选人拥有不存在的 Kubernetes 经验',
@@ -164,6 +165,7 @@ async function main(): Promise<void> {
       body: JSON.stringify({
         resumeId: saved.id,
         sectionId: project.id,
+        contentType: 'project',
         baseVersion: saved.version,
         instruction: '生成项目描述',
         jobDescription: null,
@@ -179,6 +181,7 @@ async function main(): Promise<void> {
       body: JSON.stringify({
         resumeId: saved.id,
         sectionId: project.id,
+        contentType: 'project',
         baseVersion: saved.version,
         instruction: '突出工程化成果，保留有依据的数字',
         jobDescription: '希望候选人拥有不存在的 Kubernetes 经验和日活 500+',

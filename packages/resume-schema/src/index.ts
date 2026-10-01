@@ -83,11 +83,10 @@ export const EducationResumeEntrySchema = z
     major: z.string().trim().max(160),
     degree: z.string().trim().max(80),
     ...timeline,
-    grade: nullableText(80),
-    ranking: nullableText(80),
     description: RichTextDocumentSchema,
   })
-  .strict();
+  // Strip the two retired keys when loading an old server document or IndexedDB draft.
+  .strip();
 export const ExperienceResumeEntrySchema = z
   .object({
     ...entryBase,
@@ -156,7 +155,20 @@ export const ResumeSectionSchema = z.discriminatedUnion('type', [
           email: nullableText(254),
           phone: nullableText(40),
           location: nullableText(120),
-          website: nullableText(500),
+          // Kept optional so previously saved resumes remain readable; new editors no longer expose it.
+          website: nullableText(500).optional(),
+          customFields: z
+            .array(
+              z
+                .object({
+                  id: z.string().uuid(),
+                  label: z.string().trim().max(80),
+                  value: z.string().trim().max(300),
+                })
+                .strict(),
+            )
+            .max(10)
+            .default([]),
           avatarObjectKey: nullableText(500).optional(),
         })
         .strict(),

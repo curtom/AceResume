@@ -56,8 +56,20 @@ export class ProfilesController {
         email: { type: 'string', nullable: true, format: 'email' },
         phone: { type: 'string', nullable: true, maxLength: 40 },
         location: { type: 'string', nullable: true, maxLength: 120 },
-        website: { type: 'string', nullable: true, format: 'uri' },
-        summary: { type: 'string', nullable: true, maxLength: 2000 },
+        customFields: {
+          type: 'array',
+          maxItems: 10,
+          items: {
+            type: 'object',
+            required: ['id', 'label', 'value'],
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              label: { type: 'string', maxLength: 80 },
+              value: { type: 'string', maxLength: 300 },
+            },
+          },
+        },
+        selfEvaluation: { type: 'string', nullable: true, maxLength: 2000 },
       },
     },
   })

@@ -24,7 +24,9 @@ describe('classic single template', () => {
             email: null,
             phone: null,
             location: null,
-            website: null,
+            customFields: [
+              { id: randomUUID(), label: '<b>作品集</b>', value: '<script>bad</script>' },
+            ],
           },
         },
       ],
@@ -33,6 +35,7 @@ describe('classic single template', () => {
     expect(first).toBe(renderResume({ resume, mode: 'screen' }));
     expect(first).toContain('&lt;script&gt;');
     expect(first).not.toContain('<script>alert');
+    expect(first).toContain('&lt;b&gt;作品集&lt;/b&gt;: &lt;script&gt;bad&lt;/script&gt;');
   });
 
   it('ships eight unique versioned templates that preserve the same content', () => {

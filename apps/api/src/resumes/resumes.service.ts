@@ -325,8 +325,6 @@ export class ResumesService {
         startDate: educationStart,
         endDate: validMonth('endDate', 'education'),
         isCurrent: !validMonth('endDate', 'education'),
-        grade: null,
-        ranking: null,
         description: textToRichText(value('description', 'education')),
       });
     const experience = next.sections.find((section) => section.type === 'experience');
@@ -620,7 +618,7 @@ export class ResumesService {
           email: profile?.email ?? null,
           phone: profile?.phone ?? null,
           location: profile?.location ?? null,
-          website: profile?.website ?? null,
+          customFields: profile?.customFields ?? [],
           avatarObjectKey: null,
         },
       },
@@ -652,8 +650,6 @@ export class ResumesService {
               startDate: entry.content.startDate,
               endDate: entry.content.endDate,
               isCurrent: entry.content.isCurrent,
-              grade: entry.content.grade,
-              ranking: entry.content.ranking,
               description: textToRichText(entry.content.description),
             })),
         },
@@ -722,7 +718,20 @@ export class ResumesService {
         sortOrder: 5,
         isVisible: true,
         schemaVersion: 1,
-        content: { entries: [] },
+        content: {
+          entries: entries
+            .filter((entry) => entry.type === 'campus')
+            .map((entry, sortOrder) => ({
+              id: randomUUID(),
+              sortOrder,
+              organization: entry.content.organization,
+              role: entry.content.role,
+              startDate: entry.content.startDate,
+              endDate: entry.content.endDate,
+              isCurrent: entry.content.isCurrent,
+              description: textToRichText(entry.content.description),
+            })),
+        },
       },
       {
         id: randomUUID(),
@@ -760,7 +769,7 @@ export class ResumesService {
         sortOrder: 8,
         isVisible: true,
         schemaVersion: 1,
-        content: { body: textToRichText(profile?.summary) },
+        content: { body: textToRichText(profile?.selfEvaluation) },
       },
     ];
     return ResumeDocumentSchema.parse({

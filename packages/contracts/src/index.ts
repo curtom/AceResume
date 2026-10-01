@@ -121,6 +121,14 @@ const optionalMonth = z.union([month, z.null()]);
 const textList = (maximumItems = 20, maximumLength = 500) =>
   z.array(z.string().trim().min(1).max(maximumLength)).max(maximumItems);
 
+export const ProfileCustomFieldSchema = z
+  .object({
+    id: z.string().uuid(),
+    label: z.string().trim().max(80),
+    value: z.string().trim().max(300),
+  })
+  .strict();
+
 export const ProfileSchema = z.object({
   id: z.string().uuid(),
   fullName: nullableText(100),
@@ -128,8 +136,8 @@ export const ProfileSchema = z.object({
   email: z.union([EmailSchema, z.literal(''), z.null()]).transform((value) => value || null),
   phone: nullableText(40),
   location: nullableText(120),
-  website: optionalUrl,
-  summary: nullableText(2_000),
+  customFields: z.array(ProfileCustomFieldSchema).max(10),
+  selfEvaluation: nullableText(2_000),
   version: z.number().int().positive(),
   schemaVersion: z.literal(1),
   updatedAt: z.string().datetime(),
@@ -140,8 +148,8 @@ export const UpdateProfileRequestSchema = ProfileSchema.pick({
   email: true,
   phone: true,
   location: true,
-  website: true,
-  summary: true,
+  customFields: true,
+  selfEvaluation: true,
 })
   .extend({ baseVersion: z.number().int().positive() })
   .strict();
@@ -155,8 +163,6 @@ export const EducationContentSchema = z
     startDate: month,
     endDate: optionalMonth,
     isCurrent: z.boolean(),
-    grade: nullableText(80),
-    ranking: nullableText(80),
     description: nullableText(2_000),
   })
   .strict();
@@ -188,6 +194,17 @@ export const ExperienceContentSchema = z
     skills: textList(30),
   })
   .strict();
+export const CampusContentSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    organization: z.string().trim().min(1).max(160),
+    role: z.string().trim().min(1).max(120),
+    startDate: month,
+    endDate: optionalMonth,
+    isCurrent: z.boolean(),
+    description: nullableText(1_000),
+  })
+  .strict();
 export const SkillContentSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -198,17 +215,25 @@ export const SkillContentSchema = z
   })
   .strict();
 
-export const ProfileEntryTypeSchema = z.enum(['education', 'project', 'experience', 'skill']);
+export const ProfileEntryTypeSchema = z.enum([
+  'education',
+  'project',
+  'experience',
+  'campus',
+  'skill',
+]);
 export const ProfileEntryContentSchema = z.union([
   EducationContentSchema,
   ProjectContentSchema,
   ExperienceContentSchema,
+  CampusContentSchema,
   SkillContentSchema,
 ]);
 export const CreateProfileEntryRequestSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('education'), content: EducationContentSchema }).strict(),
   z.object({ type: z.literal('project'), content: ProjectContentSchema }).strict(),
   z.object({ type: z.literal('experience'), content: ExperienceContentSchema }).strict(),
+  z.object({ type: z.literal('campus'), content: CampusContentSchema }).strict(),
   z.object({ type: z.literal('skill'), content: SkillContentSchema }).strict(),
 ]);
 export const UpdateProfileEntryRequestSchema = z
@@ -236,6 +261,7 @@ export const ProfileEntrySchema = z.discriminatedUnion('type', [
     type: z.literal('experience'),
     content: ExperienceContentSchema,
   }),
+  z.object({ ...profileEntryBase, type: z.literal('campus'), content: CampusContentSchema }),
   z.object({ ...profileEntryBase, type: z.literal('skill'), content: SkillContentSchema }),
 ]);
 export const ProfileEntryPageSchema = z.object({
@@ -264,6 +290,7 @@ export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 export type UserSummary = z.infer<typeof UserSummarySchema>;
 export type AuthSession = z.infer<typeof AuthSessionSchema>;
 export type Profile = z.infer<typeof ProfileSchema>;
+export type ProfileCustomField = z.infer<typeof ProfileCustomFieldSchema>;
 export type UpdateProfileRequest = z.infer<typeof UpdateProfileRequestSchema>;
 export type ProfileEntryType = z.infer<typeof ProfileEntryTypeSchema>;
 export type ProfileEntryContent = z.infer<typeof ProfileEntryContentSchema>;

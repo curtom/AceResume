@@ -28,10 +28,15 @@ test('creates, edits and automatically saves the latest resume', async ({ page }
   await page.getByRole('button', { name: '展开编辑' }).click();
   await expect(page.getByRole('button', { name: /^求职意向/ })).toHaveCount(0);
   await expect(page.getByLabel('求职意向')).toHaveValue('前端开发工程师');
+  await expect(page.getByLabel('个人网站')).toHaveCount(0);
   await page.getByLabel('姓名').fill('林知远');
+  await page.getByRole('button', { name: '＋ 添加字段' }).click();
+  await page.getByLabel('字段名').fill('作品集');
+  await page.getByLabel('字段内容').fill('example.test');
   await expect(page.getByText('已自动保存')).toBeVisible({ timeout: 8_000 });
   const preview = page.frameLocator('iframe[title="简历实时预览"]');
   await expect(preview.getByRole('heading', { name: '林知远' })).toBeVisible();
+  await expect(preview.getByText('作品集: example.test')).toBeVisible();
   await page.locator('input[type="file"][accept*="image/jpeg"]').setInputFiles({
     name: 'avatar.png',
     mimeType: 'image/png',

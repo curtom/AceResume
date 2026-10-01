@@ -403,7 +403,7 @@ function extractCandidates(chunks: ParsedChunk[]): ImportCandidate[] {
       if (/求职|岗位|target/i.test(label))
         add(chunk, 'basic', 'targetRole', '求职意向', content, 0.9);
       if (/简介|评价|summary/i.test(label))
-        add(chunk, 'summary', 'summary', '个人简介', content, 0.88);
+        add(chunk, 'summary', 'summary', '自我评价', content, 0.88);
       if (/学校|院校/.test(label)) add(chunk, 'education', 'school', '学校', content, 0.95);
       if (/专业/.test(label)) add(chunk, 'education', 'major', '专业', content, 0.95);
       if (/学历|学位/.test(label)) add(chunk, 'education', 'degree', '学历', content, 0.95);

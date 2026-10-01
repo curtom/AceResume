@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ApiErrorSchema,
+  CampusContentSchema,
   CreateAiTaskRequestSchema,
   EducationContentSchema,
   ExperienceContentSchema,
@@ -47,16 +48,16 @@ describe('API contracts', () => {
       email: '',
       phone: null,
       location: '',
-      website: '',
-      summary: '',
+      customFields: [],
+      selfEvaluation: '',
     });
     expect(result).toMatchObject({
       fullName: null,
       targetRole: null,
       email: null,
       location: null,
-      website: null,
-      summary: null,
+      customFields: [],
+      selfEvaluation: null,
     });
   });
 
@@ -70,8 +71,6 @@ describe('API contracts', () => {
         startDate: 'September 2022',
         endDate: null,
         isCurrent: true,
-        grade: null,
-        ranking: null,
         description: null,
         privateNote: 'not allowed',
       }).success,
@@ -105,6 +104,24 @@ describe('API contracts', () => {
         skills: [],
       }).success,
     ).toBe(true);
+    expect(
+      CampusContentSchema.safeParse({
+        schemaVersion: 1,
+        organization: '学生会',
+        role: '宣传部负责人',
+        ...dates,
+        description,
+      }).success,
+    ).toBe(true);
+    expect(
+      CampusContentSchema.safeParse({
+        schemaVersion: 1,
+        organization: '学生会',
+        role: '宣传部负责人',
+        ...dates,
+        description: description + '超',
+      }).success,
+    ).toBe(false);
     expect(
       SkillContentSchema.safeParse({
         schemaVersion: 1,

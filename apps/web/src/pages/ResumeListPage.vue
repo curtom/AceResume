@@ -44,6 +44,7 @@ const entryLabel = (entry: ProfileEntry): string => {
   if (entry.type === 'experience')
     return entry.content.organization + ' · ' + entry.content.position;
   if (entry.type === 'project') return entry.content.name;
+  if (entry.type === 'campus') return entry.content.organization + ' · ' + entry.content.role;
   return entry.content.description?.split('\n')[0] || '专业技能';
 };
 async function load(): Promise<void> {
@@ -75,7 +76,7 @@ async function openCreate(mode: 'blank' | 'profile'): Promise<void> {
   isCreateOpen.value = true;
   if (mode === 'profile' && !profileEntries.value.length) {
     try {
-      const types: ProfileEntryType[] = ['education', 'experience', 'project', 'skill'];
+      const types: ProfileEntryType[] = ['education', 'experience', 'project', 'campus', 'skill'];
       const pages = await Promise.all(types.map((type) => profileApi.listEntries(type, 1)));
       profileEntries.value = pages.flatMap((page) => page.items);
       selectedProfileIds.value = profileEntries.value.map((entry) => entry.id);

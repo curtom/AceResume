@@ -29,12 +29,31 @@ function commit(change: (section: ResumeSection) => void): void {
   const parsed = ResumeSectionSchema.safeParse(next);
   if (parsed.success) emit('update', parsed.data);
 }
-function setBasic(
-  field: 'fullName' | 'email' | 'phone' | 'location' | 'website',
-  value: string,
-): void {
+function setBasic(field: 'fullName' | 'email' | 'phone' | 'location', value: string): void {
   commit((section) => {
     if (section.type === 'basic') section.content[field] = value || null;
+  });
+}
+function addBasicCustomField(): void {
+  commit((section) => {
+    if (section.type !== 'basic' || section.content.customFields.length >= 10) return;
+    section.content.customFields.push({
+      id: globalThis.crypto.randomUUID(),
+      label: '',
+      value: '',
+    });
+  });
+}
+function updateBasicCustomField(index: number, field: 'label' | 'value', value: string): void {
+  commit((section) => {
+    if (section.type !== 'basic') return;
+    const customField = section.content.customFields[index];
+    if (customField) customField[field] = value;
+  });
+}
+function removeBasicCustomField(index: number): void {
+  commit((section) => {
+    if (section.type === 'basic') section.content.customFields.splice(index, 1);
   });
 }
 function setTarget(value: string): void {
@@ -74,8 +93,6 @@ function addEntry(): void {
             startDate: month,
             endDate: null,
             isCurrent: true,
-            grade: null,
-            ranking: null,
             description: rich,
           }
         : section.type === 'experience'
@@ -182,17 +199,13 @@ function moveEntry(index: number, direction: -1 | 1): void {
           </div>
         </div>
       </div>
-      <label
-        v-for="field in ['fullName', 'email', 'phone', 'location', 'website'] as const"
-        :key="field"
-      >
+      <label v-for="field in ['fullName', 'email', 'phone', 'location'] as const" :key="field">
         <span>{{
           {
             fullName: '姓名',
             email: '邮箱',
             phone: '电话',
             location: '所在地',
-            website: '个人网站',
           }[field]
         }}</span>
         <a-input
@@ -207,6 +220,46 @@ function moveEntry(index: number, direction: -1 | 1): void {
           placeholder="例如：前端开发工程师"
           @change="setTarget($event.target.value)"
       /></label>
+      <div class="basic-custom-fields wide">
+        <div class="custom-fields-heading">
+          <span>自定义字段</span>
+          <button type="button" @click="addBasicCustomField">＋ 添加字段</button>
+        </div>
+        <div
+          v-for="(field, index) in section.content.customFields"
+          :key="field.id"
+          class="custom-field-row"
+        >
+          <label>
+            <span>字段名</span>
+            <a-input
+              :value="field.label"
+              :maxlength="80"
+              placeholder="例如：作品集"
+              @change="updateBasicCustomField(index, 'label', $event.target.value)"
+            />
+          </label>
+          <label>
+            <span>字段内容</span>
+            <a-input
+              :value="field.value"
+              :maxlength="300"
+              placeholder="例如：https://example.com"
+              @change="updateBasicCustomField(index, 'value', $event.target.value)"
+            />
+          </label>
+          <button
+            type="button"
+            :aria-label="`删除自定义字段 ${index + 1}`"
+            @click="removeBasicCustomField(index)"
+          >
+            删除
+          </button>
+        </div>
+        <small v-if="section.content.customFields.length === 0"
+          >可添加作品集、社交主页等补充信息。</small
+        >
+      </div>
     </div>
     <label v-else-if="section.type === 'target'"
       ><span>目标职位</span
@@ -451,6 +504,43 @@ label {
   color: #445168;
   font-size: 0.82rem;
 }
+.basic-custom-fields {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid #e0e4eb;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+.custom-fields-heading,
+.custom-field-row {
+  display: flex;
+  align-items: end;
+  gap: 0.75rem;
+}
+.custom-fields-heading {
+  justify-content: space-between;
+  color: #445168;
+  font-size: 0.82rem;
+}
+.custom-fields-heading button,
+.custom-field-row > button {
+  padding: 0.48rem 0.75rem;
+  border: 1px solid #8fa4cc;
+  border-radius: 5px;
+  background: white;
+  color: #173fbd;
+}
+.custom-field-row label {
+  min-width: 0;
+  flex: 1;
+}
+.custom-field-row > button {
+  color: #7a5460;
+}
+.basic-custom-fields small {
+  color: #7b8494;
+}
 .avatar-control {
   display: flex;
   align-items: center;
@@ -541,6 +631,10 @@ label {
   }
   .date-range-fields {
     grid-template-columns: 1fr;
+  }
+  .custom-field-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 </style>

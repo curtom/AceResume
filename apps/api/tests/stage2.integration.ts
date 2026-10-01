@@ -151,11 +151,29 @@ async function main(): Promise<void> {
         email: emails[0],
         phone: null,
         location: '杭州',
-        website: null,
-        summary: null,
+        customFields: [
+          {
+            id: '00000000-0000-4000-8000-000000000099',
+            label: '作品集',
+            value: 'https://example.test',
+          },
+        ],
+        selfEvaluation: '关注用户体验与工程质量。',
       }),
     });
     assert.equal(profileUpdate.response.status, 200);
+    const updatedProfile = data<{
+      customFields: Array<{ label: string; value: string }>;
+      selfEvaluation: string | null;
+    }>(profileUpdate.body);
+    assert.deepEqual(updatedProfile.customFields, [
+      {
+        label: '作品集',
+        value: 'https://example.test',
+        id: '00000000-0000-4000-8000-000000000099',
+      },
+    ]);
+    assert.equal(updatedProfile.selfEvaluation, '关注用户体验与工程质量。');
     const education = await api(baseUrl, '/profile/entries', {
       method: 'POST',
       headers: { authorization: `Bearer ${sessionA.accessToken}` },
@@ -169,14 +187,33 @@ async function main(): Promise<void> {
           startDate: '2022-09',
           endDate: '2026-06',
           isCurrent: false,
-          grade: null,
-          ranking: null,
           description: null,
         },
       }),
     });
     assert.equal(education.response.status, 201);
     const entry = data<{ id: string; version: number }>(education.body);
+    const campus = await api(baseUrl, '/profile/entries', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${sessionA.accessToken}` },
+      body: JSON.stringify({
+        type: 'campus',
+        content: {
+          schemaVersion: 1,
+          organization: '学生会',
+          role: '宣传部负责人',
+          startDate: '2023-09',
+          endDate: null,
+          isCurrent: true,
+          description: '组织校园招聘主题分享活动。',
+        },
+      }),
+    });
+    assert.equal(campus.response.status, 201);
+    const campusList = await api(baseUrl, '/profile/entries?type=campus&page=1&pageSize=20', {
+      headers: { authorization: `Bearer ${sessionA.accessToken}` },
+    });
+    assert.equal(data<{ total: number }>(campusList.body).total, 1);
     const secondEducation = await api(baseUrl, '/profile/entries', {
       method: 'POST',
       headers: { authorization: `Bearer ${sessionA.accessToken}` },
@@ -190,8 +227,6 @@ async function main(): Promise<void> {
           startDate: '2026-09',
           endDate: null,
           isCurrent: true,
-          grade: null,
-          ranking: null,
           description: null,
         },
       }),
@@ -211,8 +246,6 @@ async function main(): Promise<void> {
           startDate: '2026-09',
           endDate: '2025-06',
           isCurrent: false,
-          grade: null,
-          ranking: null,
           description: null,
         },
       }),
@@ -236,8 +269,6 @@ async function main(): Promise<void> {
           startDate: '2022-09',
           endDate: '2026-06',
           isCurrent: false,
-          grade: null,
-          ranking: null,
           description: null,
         },
       }),

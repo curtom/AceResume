@@ -72,3 +72,87 @@ test('generates a cited suggestion and writes it only after user approval', asyn
   await page.getByRole('button', { name: /项目经历/ }).click();
   await expect(page.locator('.tiptap')).toContainText('8 个复用组件');
 });
+
+test('names personal profile AI sources by their actual organization or project', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(60_000);
+  const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const email = `ai-profile-sources-${suffix}@example.test`;
+  await page.setExtraHTTPHeaders({ 'x-forwarded-for': `2001:db8:${suffix.slice(-4)}::8` });
+  await page.goto('/login');
+  await page.getByLabel('邮箱').fill(email);
+  await page.getByLabel('密码').fill('ProfileSources123');
+  const [loginResponse] = await Promise.all([
+    page.waitForResponse((response) => response.url().endsWith('/api/v1/auth/login')),
+    page.getByRole('button', { name: '登录 / 创建账号' }).click(),
+  ]);
+  const loginBody = (await loginResponse.json()) as { data: { accessToken: string } };
+  const apiOrigin = new URL(loginResponse.url()).origin;
+  const headers = { authorization: `Bearer ${loginBody.data.accessToken}` };
+  const dates = { startDate: '2025-01', endDate: null, isCurrent: true };
+  const createEntry = async (data: object): Promise<string> => {
+    const response = await request.post(`${apiOrigin}/api/v1/profile/entries`, { headers, data });
+    expect(response.ok()).toBe(true);
+    return ((await response.json()) as { data: { id: string } }).data.id;
+  };
+  const projectId = await createEntry({
+    type: 'project',
+    content: {
+      schemaVersion: 1,
+      name: '校园交易平台资料',
+      role: '前端负责人',
+      ...dates,
+      background: null,
+      responsibilities: ['拆分可复用组件。'],
+      technologies: ['Vue 3'],
+      outcomes: [],
+      url: null,
+    },
+  });
+  const experienceId = await createEntry({
+    type: 'experience',
+    content: {
+      schemaVersion: 1,
+      organization: '星河科技',
+      position: '前端实习生',
+      ...dates,
+      responsibilities: ['参与管理后台开发。'],
+      outcomes: [],
+      skills: ['TypeScript'],
+    },
+  });
+  const campusId = await createEntry({
+    type: 'campus',
+    content: {
+      schemaVersion: 1,
+      organization: '校学生会',
+      role: '宣传部负责人',
+      ...dates,
+      description: '组织校园招聘主题分享活动。',
+    },
+  });
+  const resumeResponse = await request.post(`${apiOrigin}/api/v1/resumes`, {
+    headers,
+    data: {
+      mode: 'profile',
+      name: '个人资料来源命名测试',
+      targetRole: '前端开发',
+      locale: 'zh-CN',
+      templateVersionId: 'classic-single-v1',
+      profileEntryIds: [projectId, experienceId, campusId],
+    },
+  });
+  expect(resumeResponse.ok()).toBe(true);
+  const resume = (await resumeResponse.json()) as { data: { id: string } };
+  await page.goto(`/resumes/${resume.data.id}/edit`);
+  await page.getByRole('button', { name: '项目经历', exact: true }).click();
+  await page.getByRole('button', { name: /AI 辅助/ }).click();
+  const sourceDrawer = page.locator('.ai-assistant-drawer');
+  await expect(page.locator('.source-option', { hasText: '校园交易平台资料' })).toBeVisible();
+  await sourceDrawer.getByText('工作 / 实习', { exact: true }).click();
+  await expect(page.locator('.source-option', { hasText: '星河科技' })).toBeVisible();
+  await sourceDrawer.getByText('校园经历', { exact: true }).click();
+  await expect(page.locator('.source-option', { hasText: '校学生会' })).toBeVisible();
+});

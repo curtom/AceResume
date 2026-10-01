@@ -13,29 +13,38 @@ const emit = defineEmits<{
   move: [index: number, direction: -1 | 1];
 }>();
 const labels: Record<ProfileEntryType, { title: string; hint: string; add: string }> = {
-  education: { title: '教育经历', hint: '学校、专业、学历与绩点信息', add: '添加教育经历' },
+  education: { title: '教育经历', hint: '学校、专业、学历与在校经历', add: '添加教育经历' },
   project: { title: '项目经历', hint: '记录项目、角色、时间与内容描述', add: '添加项目经历' },
   experience: {
     title: '实习 / 工作经历',
     hint: '记录组织、职位、时间与内容描述',
     add: '添加实习或工作',
   },
+  campus: {
+    title: '校园经历',
+    hint: '记录校园组织、角色、时间与内容描述',
+    add: '添加校园经历',
+  },
   skill: { title: '专业技能', hint: '维护可复用的专业技能描述', add: '添加专业技能' },
 };
 function title(entry: ProfileEntry): string {
-  const content = entry.content;
-  if ('school' in content) return content.school;
-  if ('organization' in content) return content.organization;
-  if ('category' in content) return '专业技能';
-  return content.name;
+  if (entry.type === 'education') return entry.content.school;
+  if (entry.type === 'experience' || entry.type === 'campus') return entry.content.organization;
+  if (entry.type === 'skill') return '专业技能';
+  return entry.content.name;
 }
 function subtitle(entry: ProfileEntry): string {
-  const content = entry.content;
-  if ('major' in content) return `${content.degree} · ${content.major}`;
-  if ('position' in content) return content.position;
-  if ('technologies' in content)
-    return content.role || content.background || content.responsibilities[0] || '未填写内容描述';
-  return content.description || '未填写内容描述';
+  if (entry.type === 'education') return `${entry.content.degree} · ${entry.content.major}`;
+  if (entry.type === 'experience') return entry.content.position;
+  if (entry.type === 'campus') return entry.content.role;
+  if (entry.type === 'project')
+    return (
+      entry.content.role ||
+      entry.content.background ||
+      entry.content.responsibilities[0] ||
+      '未填写内容描述'
+    );
+  return entry.content.description || '未填写内容描述';
 }
 </script>
 

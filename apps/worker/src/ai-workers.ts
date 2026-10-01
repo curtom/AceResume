@@ -21,8 +21,11 @@ import {
 } from '@aceresume/ai-core';
 import {
   AiGenerateJobSchema,
+  CampusContentSchema,
   CreateAiTaskRequestSchema,
   DocumentEmbedJobSchema,
+  ExperienceContentSchema,
+  ProjectContentSchema,
   ResumeSuggestionSchema,
   type AiContentType,
   type AiResumePatch,
@@ -47,6 +50,21 @@ const CONTENT_TYPE_QUERY_HINTS: Record<AiContentType, string> = {
   experience: '实习 工作经历 任职 公司 企业 岗位 职位 工作职责',
   campus: '校园 校内 学生会 社团 协会 志愿 班委 活动 竞赛 比赛',
 };
+function profileSourceLabel(type: string, content: unknown): string {
+  if (type === 'experience') {
+    const parsed = ExperienceContentSchema.safeParse(content);
+    if (parsed.success) return parsed.data.organization;
+  }
+  if (type === 'project') {
+    const parsed = ProjectContentSchema.safeParse(content);
+    if (parsed.success) return parsed.data.name;
+  }
+  if (type === 'campus') {
+    const parsed = CampusContentSchema.safeParse(content);
+    if (parsed.success) return parsed.data.organization;
+  }
+  return '个人资料';
+}
 class AiValidationError extends Error {
   constructor(
     readonly code: string,
@@ -258,7 +276,7 @@ async function retrieveContexts(
     .filter((row) => row.type === input.contentType)
     .map((row) => ({
       id: 'profile:' + row.id,
-      label: '个人资料 · ' + CONTENT_TYPE_LABELS[input.contentType],
+      label: '个人资料 · ' + profileSourceLabel(row.type, row.content),
       text: JSON.stringify(row.content),
       sourceType: 'profile',
       sourceId: row.id,

@@ -19,10 +19,10 @@ export class ProfilesRepository {
   }
 
   async updateProfile(userId: string, input: UpdateProfileRequest) {
-    const { baseVersion, ...values } = input;
+    const { baseVersion, selfEvaluation, ...values } = input;
     const [profile] = await this.database.db
       .update(profiles)
-      .set({ ...values, version: baseVersion + 1, updatedAt: new Date() })
+      .set({ ...values, summary: selfEvaluation, version: baseVersion + 1, updatedAt: new Date() })
       .where(and(eq(profiles.userId, userId), eq(profiles.version, baseVersion)))
       .returning();
     return profile;

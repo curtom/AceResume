@@ -18,6 +18,11 @@ test('creates an account on first login and maintains profile data', async ({ pa
   await expect(page.getByRole('heading', { name: '个人资料' })).toBeVisible();
   await page.getByLabel('姓名').fill('林知远');
   await page.getByLabel('求职意向').fill('前端开发工程师');
+  await expect(page.getByLabel('个人网站')).toHaveCount(0);
+  await page.getByRole('button', { name: '＋ 添加字段' }).click();
+  await page.getByLabel('字段名').fill('作品集');
+  await page.getByLabel('字段内容').fill('https://example.test');
+  await page.getByLabel('自我评价').fill('关注用户体验与工程质量。');
   await page.getByRole('button', { name: '保存基本信息' }).click();
   await expect(page.getByText('基本信息已保存。')).toBeVisible();
   await page.getByRole('button', { name: /教育经历/ }).click();
@@ -26,6 +31,8 @@ test('creates an account on first login and maintains profile data', async ({ pa
   await dialog.getByLabel('学校').fill('示例大学');
   await dialog.getByLabel('专业').fill('计算机科学');
   await dialog.getByLabel('学历').fill('本科');
+  await expect(dialog.getByLabel('绩点')).toHaveCount(0);
+  await expect(dialog.getByLabel('排名')).toHaveCount(0);
   const educationStart = dialog.getByPlaceholder('选择开始月份');
   await expect(educationStart).toHaveAttribute('readonly', '');
   await educationStart.click();
@@ -53,6 +60,16 @@ test('creates an account on first login and maintains profile data', async ({ pa
   await expect(dialog.getByLabel('职位')).toBeVisible();
   await expect(dialog.getByRole('textbox', { name: /内容描述 0 \/ 1000/ })).toBeVisible();
   await expect(dialog.getByText(/职责|成果|相关技能/)).toHaveCount(0);
+  await dialog.getByRole('button', { name: /取\s*消/ }).click();
+
+  await page.getByRole('button', { name: '校园经历', exact: true }).click();
+  await page.getByRole('button', { name: /添加校园经历/ }).click();
+  await expect(dialog.getByLabel('组织', { exact: true })).toBeVisible();
+  await expect(dialog.getByLabel('角色', { exact: true })).toBeVisible();
+  await expect(dialog.getByPlaceholder('选择开始月份')).toBeVisible();
+  await expect(dialog.getByPlaceholder('选择结束月份')).toBeDisabled();
+  await expect(dialog.getByText('至今', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('textbox', { name: /内容描述 0 \/ 1000/ })).toBeVisible();
   await dialog.getByRole('button', { name: /取\s*消/ }).click();
 
   await page.getByRole('button', { name: '专业技能', exact: true }).click();

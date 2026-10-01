@@ -59,7 +59,7 @@ const formatSize = (bytes: number): string =>
   bytes < 1024 * 1024 ? `${Math.ceil(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 const candidateSection: Record<ImportCandidate['section'], string> = {
   basic: '基本信息',
-  summary: '个人简介',
+  summary: '自我评价',
   education: '教育经历',
   experience: '实习 / 工作',
   project: '项目经历',

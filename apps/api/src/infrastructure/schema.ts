@@ -16,6 +16,7 @@ import type {
   AiTaskEvent,
   CreateAiTaskRequest,
   ImportCandidate,
+  ProfileCustomField,
   ProfileEntryContent,
   RenderDiagnostics,
   ResumeSuggestion,
@@ -33,6 +34,7 @@ export const profileEntryType = pgEnum('profile_entry_type', [
   'education',
   'project',
   'experience',
+  'campus',
   'skill',
 ]);
 export const resumeStatus = pgEnum('resume_status', ['active', 'archived']);
@@ -177,6 +179,7 @@ export const profiles = pgTable(
     phone: varchar('phone', { length: 40 }),
     location: varchar('location', { length: 120 }),
     website: varchar('website', { length: 500 }),
+    customFields: jsonb('custom_fields').$type<ProfileCustomField[]>().notNull().default([]),
     summary: text('summary'),
     version: integer('version').notNull().default(1),
     schemaVersion: integer('schema_version').notNull().default(1),
